@@ -1,0 +1,20 @@
+Here's the whole thing in plain terms.
+
+**What we ended up doing.** We started trying to predict how long an event takes to clear, but the data couldn't support that (the timing columns were 97% empty, and the model scored near zero). So we pivoted to something the data *can* predict: **whether a new event will need a road closure.** That directly answers the "should we send barricades?" question in your theme.
+
+**What information the model uses.** Only things known the moment an event is reported (no cheating with future info): the event cause, vehicle type, police station, junction/corridor/zone, planned-vs-unplanned, priority, and time features (hour, day, weekend). The strongest predictors turned out to be **event cause, police station, and vehicle type.**
+
+**What the model predicts.** For each incoming event it outputs a **probability that the event will require a road closure**. From that probability we compute a simple, transparent impact score (0–10) and a recommendation: barricades, personnel count, whether to set up a diversion. The "expected clearance time" shown is *not* predicted — it's just the historical average for that junction, clearly labeled as descriptive.
+
+**Numbers to record for your report:**
+- Dataset: 8,173 events → **2,724 usable** after cleaning (dropped 4,509 with no end-timestamp, 735 admin-closed beyond 24h)
+- Split: **temporal** (oldest 2,179 train / newest 545 test) — honest forecasting setup
+- Target: requires_road_closure (positive rate **10.5%** — imbalanced)
+- **ROC-AUC: 0.72**
+- **PR-AUC: 0.348 vs 0.105 baseline = 3.3× lift** ← this is your headline metric (correct one for imbalanced data)
+- Operating point (threshold 0.3): **precision 0.29, recall 0.47, flags 17% of events**
+- Top features: event_cause, police_station, veh_type
+
+One quick fix before you trust the prediction output: the demo event at the bottom of `predictor.py` uses placeholder names like `JN_5`/`PS_10` that don't exist in your data (note `is_known_location: false` and the suspicious `0.998`). Swap in a **real** junction, cause, and police station from your CSV and it'll give a realistic probability.
+
+For the report, quote PR-AUC lift as the main result and frame the project as "we tested clearance-time prediction, found it unsupported, and pivoted to closure-need prediction (3.3× lift) driving barricade recommendations." That honest arc is your strongest card.

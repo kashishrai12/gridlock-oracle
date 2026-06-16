@@ -1,0 +1,47 @@
+{
+  "roc_auc": 0.723,
+  "pr_auc": 0.348,
+  "pr_baseline": 0.105,
+  "operating_points": [
+    {
+      "threshold": 0.2,
+      "precision": 0.252,
+      "recall": 0.491,
+      "f1": 0.333,
+      "flagged_pct": 20.4
+    },
+    {
+      "threshold": 0.3,
+      "precision": 0.29,
+      "recall": 0.474,
+      "f1": 0.36,
+      "flagged_pct": 17.1
+    },
+    {
+      "threshold": 0.5,
+      "precision": 0.307,
+      "recall": 0.404,
+      "f1": 0.348,
+      "flagged_pct": 13.8
+    }
+  ],
+  "n_train": 2179,
+  "n_test": 545,
+  "pos_rate_train": 0.077,
+  "features": [
+    "hour",
+    "day_of_week",
+    "month",
+    "is_weekend",
+    "priority_encoded",
+    "is_planned",
+    "junction_event_count",
+    "junction_hist_clearance",
+    "corridor_event_count",
+    "zone_event_count",
+    "is_known_junction",
+    "event_cause_cat",
+    "veh_type_cat",
+    "police_station_cat"
+  ]
+}
