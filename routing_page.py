@@ -14,11 +14,27 @@ import routing   # local module — direct call, no HTTP
 
 # Theme-aware colors that work in both light and dark mode
 ROUTE_COLORS_DARK = ['#34D399', '#FBBF24', '#F87171']    # teal, amber, red
-ROUTE_COLORS_LIGHT = ['#0891B2', '#D97706', '#DC2626']   # darker versions for light mode
+ROUTE_COLORS_LIGHT = ['#0ea5a4', '#b45309', '#dc2626']   # adjusted for light backgrounds
 ROUTE_LABELS = ['⭐ RECOMMENDED', 'ALTERNATE', 'BACKUP']
 
-def get_route_color(index, is_dark_mode=True):
+
+def _detect_dark_mode():
+    """Detect whether Streamlit is currently using dark mode.
+    Falls back to session_state flag if Streamlit option not available.
+    """
+    try:
+        # Streamlit exposes theme.base as 'dark' or 'light'
+        base = st.get_option('theme.base')
+        return str(base).lower() == 'dark'
+    except Exception:
+        # fallback to an explicit session-state flag if present
+        return bool(st.session_state.get('dark_mode', True))
+
+
+def get_route_color(index, is_dark_mode=None):
     """Return route color based on theme mode."""
+    if is_dark_mode is None:
+        is_dark_mode = _detect_dark_mode()
     colors = ROUTE_COLORS_DARK if is_dark_mode else ROUTE_COLORS_LIGHT
     return colors[index % len(colors)]
 
@@ -93,13 +109,13 @@ def render_routing_page(theme=None):
                            "`python congestion.py --data data/flipkart_gridlock.csv` to enable "
                            "capacity-aware ranking, and `python routing.py --download` for real roads.")
 
-            is_dark = getattr(st.session_state, 'dark_mode', True)
+            is_dark = _detect_dark_mode()
             _render_map(clat, clon, routes, barricades, radius, is_dark)
             _render_route_cards(routes, is_dark, theme)
             _render_barricade_table(barricades)
         else:
             # Empty map centered on Bengaluru - use theme-aware tiles
-            is_dark = getattr(st.session_state, 'dark_mode', True)
+            is_dark = _detect_dark_mode()
             tiles = 'CartoDB dark_matter' if is_dark else 'OpenStreetMap'
             m = folium.Map(location=[12.9716, 77.5946], zoom_start=13, tiles=tiles)
             st_folium(m, height=480, use_container_width=True)
