@@ -417,11 +417,31 @@ def load_csv(name):
     return pd.read_csv(p) if os.path.exists(p) else None
 
 
+@st.cache_data
+def load_cascades():
+    import cascade
+    if os.path.exists(cascade.CASCADE_PATH):
+        return pd.read_csv(cascade.CASCADE_PATH, parse_dates=["overlap_start", "overlap_end"])
+    if os.path.exists("data/flipkart_gridlock.csv"):
+        return cascade.build_cascades("data/flipkart_gridlock.csv")
+    return None
+
+@st.cache_data
+def load_event_pool(n, seed):
+    import optimizer
+    return optimizer.build_event_pool(n=n, seed=seed)
+
+
 def options(df, col, limit=200):
     if df is None or col not in df.columns:
         return []
     vals = df[col].dropna().astype(str)
     return sorted(vals.value_counts().head(limit).index.tolist())
+
+NOT_SET = "— not specified —"
+
+def val(selection):
+    return "none" if selection == NOT_SET else selection
 
 
 def artifacts_ready():
@@ -441,8 +461,8 @@ theme = THEME_DARK if st.session_state.dark_mode else THEME_LIGHT
 inject_css(theme)
 
 NAV_GROUPS = [
-    ("Forecast", [("grid", "Predict Event"), ("map_pin", "Risk Map"), ("bar_chart", "Analytics")]),
-    ("Operations", [("route", "Diversion & Barricades"), ("loop", "Learning Loop")]),
+    ("Forecast", [("grid", "Predict Event"), ("map_pin", "Risk Map"), ("bar_chart", "Analytics"), ("alert_triangle", "Event Cascades")]),
+    ("Operations", [("route", "Diversion & Barricades"), ("users", "Deployment Optimizer"), ("loop", "Learning Loop")]),
 ]
 
 with st.sidebar:
@@ -470,10 +490,14 @@ PAGE_META = {
                  "Where and when event load concentrates across the network."),
     "Analytics": ("Patterns", "Analytics",
                   "Temporal, causal, and closure-rate patterns across logged events."),
+    "Event Cascades": ("Risk", "Event cascade detection",
+                       "Concurrent incidents at the same location compound — combined impact exceeds the sum of parts."),
     "Diversion & Barricades": ("Response", "Diversion & barricades",
                                "Routing console for active closures."),
     "Learning Loop": ("Feedback", "Learning loop",
                        "Log whether a closure was actually needed, to refine the model over time."),
+    "Deployment Optimizer": ("Operations", "Deployment optimizer",
+                             "Allocate a limited pool of officers and barricades across the day's predicted incidents to mitigate the most disruption."),
 }
 
 tl, tr = st.columns([6, 1])
@@ -517,36 +541,29 @@ if enriched is not None:
 # --------------------------------------------------------------------------- #
 if page == "Predict Event":
     with st.container(border=True):
-        card_header("list", "Event parameters", "Describe the incident to get a closure-need forecast")
-
-        st.markdown('<div class="nav-group-label">Incident</div>', unsafe_allow_html=True)
+        card_header("list", "Incident", "The signals the model actually weighs")
         c1, c2 = st.columns(2)
         with c1:
             cause = st.selectbox("Event cause", options(enriched, "event_cause") or ["Accident"])
-            veh = st.selectbox("Vehicle type", options(enriched, "veh_type") or ["Car"])
+            veh = st.selectbox("Vehicle type", [NOT_SET] + (options(enriched, "veh_type") or ["Car"]))
             priority = st.selectbox("Priority", ["Low", "Medium", "High", "Critical"], index=2)
         with c2:
             etype = st.selectbox("Type", ["unplanned", "planned"])
             when = st.time_input("Time of day", dt.time(18, 0))
-
-        st.markdown('<div class="nav-group-label">Location</div>', unsafe_allow_html=True)
-        c3, c4 = st.columns(2)
-        with c3:
-            junction = st.selectbox("Junction", options(enriched, "junction") or ["Unknown"])
-            zone = st.selectbox("Zone", options(enriched, "zone") or ["Unknown"])
-        with c4:
-            corridor = st.selectbox("Corridor", options(enriched, "corridor") or ["Unknown"])
             ps = st.selectbox("Police station", options(enriched, "police_station") or ["Unknown"])
+
+        with st.expander("Location context (optional — feeds the map & location history)"):
+            junction = st.selectbox("Junction", [NOT_SET] + (options(enriched, "junction") or ["Unknown"]))
 
         predict_clicked = st.button("Predict", type="primary")
 
     if predict_clicked:
         predictor = load_predictor()
+        junction_val = val(junction)
         event = {
             "start_datetime": f"2024-06-01 {when.strftime('%H:%M')}",
             "priority": priority, "event_type": etype, "event_cause": cause,
-            "veh_type": veh, "junction": junction, "corridor": corridor,
-            "zone": zone, "police_station": ps,
+            "veh_type": val(veh), "police_station": ps, "junction": junction_val,
         }
         r = predictor.predict(event)
 
@@ -575,6 +592,18 @@ if page == "Predict Event":
                       tone="bad" if res["rapid_response_required"] else "good"),
         ])
 
+        if r.get("analogs"):
+            ana = r["analogs"]
+            with st.container(border=True):
+                card_header("clock", "Grounded in historical analogs",
+                            f"{ana['n_matched']} most-similar past incidents · "
+                            f"clearance {ana['clearance_p25']}–{ana['clearance_p75']} min · "
+                            f"{ana['analog_closure_rate']*100:.0f}% needed a closure")
+                ax = pd.DataFrame(ana["examples"]).rename(columns={
+                    "event_cause": "Cause", "veh_type": "Vehicle", "zone": "Zone",
+                    "clearance_mins": "Clearance (min)", "needed_closure": "Needed closure"})
+                st.dataframe(ax, use_container_width=True, hide_index=True)
+                
         ex = pd.DataFrame(r["explanations"])
         if not ex.empty:
             with st.container(border=True):
@@ -588,7 +617,7 @@ if page == "Predict Event":
                 st.plotly_chart(style_fig(fig, height=300), use_container_width=True)
 
         if enriched is not None and {"latitude", "longitude"}.issubset(enriched.columns):
-            jrows = enriched[enriched["junction"].astype(str) == str(junction)]
+            jrows = enriched[enriched["junction"].astype(str) == str(junction_val)]
             if not jrows.empty:
                 with st.container(border=True):
                     card_header("map_pin", "Junction location", None)
@@ -620,7 +649,7 @@ elif page == "Risk Map":
 
 
 # --------------------------------------------------------------------------- #
-# 3) ANALYTICS
+# 3a) ANALYTICS
 # --------------------------------------------------------------------------- #
 elif page == "Analytics":
     hourly = load_csv("hotspot_hourly.csv")
@@ -677,6 +706,68 @@ elif page == "Analytics":
 
 
 # --------------------------------------------------------------------------- #
+# 3b) EVENT CASCADES
+# --------------------------------------------------------------------------- #
+elif page == "Event Cascades":
+    cas = load_cascades()
+    if cas is None or len(cas) == 0:
+        alert("warn", "No cascades available",
+              "Run <code>python cascade.py --data data/flipkart_gridlock.csv</code> to generate them.")
+        st.stop()
+
+    stat_grid([
+        stat_card("alert_triangle", "Cascade pairs", f"{len(cas):,}", "overlapping incidents", tone="info"),
+        stat_card("octagon", "High-risk (≥7)", f"{int((cas['cascade_risk'] >= 7).sum()):,}", "compound risk", tone="bad"),
+        stat_card("map_pin", "Locations affected", f"{cas['location'].nunique():,}", "corridors + clusters", tone="neutral"),
+    ])
+
+    view = st.radio("Show", ["Real corridors", "Spatial clusters", "All"], horizontal=True, index=0)
+    if view == "Real corridors":
+        show = cas[cas["group_type"] == "corridor"]
+    elif view == "Spatial clusters":
+        show = cas[cas["group_type"] == "geo"]
+    else:
+        show = cas
+    if len(show) == 0:
+        alert("info", "Nothing to show", "No cascades of this type in the data.")
+        st.stop()
+
+    top = (show.groupby("location")
+              .agg(pairs=("cascade_risk", "size"), avg_risk=("cascade_risk", "mean"))
+              .sort_values("pairs", ascending=False).head(12).reset_index())
+
+    with st.container(border=True):
+        card_header("bar_chart", "Most cascade-prone locations", "Concurrent overlapping incidents per location")
+        fig = px.bar(top.iloc[::-1], x="pairs", y="location", orientation="h", color="avg_risk",
+                     color_continuous_scale=[theme["amber-soft"], theme["amber"], theme["red"]])
+        fig = style_fig(fig, height=380)
+        fig.update_coloraxes(showscale=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with st.container(border=True):
+        card_header("list", "Worst cascades", "Highest compound-risk overlaps")
+        worst = show.sort_values("cascade_risk", ascending=False).head(15).copy()
+        worst["window"] = (pd.to_datetime(worst["overlap_start"]).dt.strftime("%d %b %H:%M")
+                           + " → " + pd.to_datetime(worst["overlap_end"]).dt.strftime("%H:%M"))
+        st.dataframe(worst[["location", "window", "overlap_min", "closures_in_pair", "cascade_risk"]],
+                     use_container_width=True, hide_index=True)
+
+    focus = top.iloc[0]["location"]
+    sub = show[show["location"] == focus].sort_values("cascade_risk", ascending=False).head(30)
+    if len(sub):
+        with st.container(border=True):
+            card_header("clock", "Cascade timeline", f"Most-affected location · {focus}")
+            tl = pd.DataFrame([{"Pair": f"{r.event_a}+{r.event_b}", "Start": r.overlap_start,
+                                "End": r.overlap_end, "Risk": r.cascade_risk} for r in sub.itertuples()])
+            fig = px.timeline(tl, x_start="Start", x_end="End", y="Pair", color="Risk",
+                              color_continuous_scale=[theme["amber-soft"], theme["amber"], theme["red"]])
+            fig = style_fig(fig, height=420)
+            fig.update_yaxes(autorange="reversed")
+            fig.update_coloraxes(showscale=False)
+            st.plotly_chart(fig, use_container_width=True)
+
+
+# --------------------------------------------------------------------------- #
 # 4) DIVERSION & BARRICADES  (routing page with theme support)
 # --------------------------------------------------------------------------- #
 elif page == "Diversion & Barricades":
@@ -687,9 +778,69 @@ elif page == "Diversion & Barricades":
     except Exception as e:
         alert("bad", "Routing page failed to load", str(e))
 
+# --------------------------------------------------------------------------- #
+# 5) DEPLOYMENT OPTIMIZER
+# --------------------------------------------------------------------------- #
+
+elif page == "Deployment Optimizer":
+    import optimizer
+
+    mode = st.radio("Scenario", ["Simulated day", "Replay a real day"], horizontal=True)
+    if mode == "Replay a real day":
+        days = optimizer.available_days(top=20)
+        pick = st.selectbox("Date", [f"{d} ({c} incidents)" for d, c in days])
+        date_str = pick.split(" ")[0]
+        pool, n_events = optimizer.load_real_day(date_str)
+    else:
+        n_events = st.slider("Predicted incidents (busy day ≈ 71)", 20, 250, 71, 10)
+        pool = load_event_pool(n_events, 0)
+
+    cols = st.columns(2)
+    with cols[0]:
+        officer_budget = st.slider("Officers available", 20, 300, 80, 10)
+    with cols[1]:
+        barricade_budget = st.slider("Barricades available", 5, 120, 30, 5)
+
+    results = optimizer.compare(pool, officer_budget, barricade_budget)
+    ilp = results[0]
+
+    demand_o = int(pool["personnel"].sum())
+    stat_grid([
+        stat_card("users", "Officer demand", f"{demand_o}", f"budget {officer_budget}",
+                  tone="bad" if demand_o > officer_budget else "good"),
+        stat_card("octagon", "Events covered", f"{ilp['events_covered']}/{ilp['events_total']}",
+                  "by optimizer", tone="info"),
+        stat_card("shield", "Disruption mitigated", f"{ilp['coverage_pct']}%",
+                  "of total weighted risk", tone="good"),
+        stat_card("route", "Barricades used", f"{ilp['barricades_used']}/{barricade_budget}", tone="info"),
+    ])
+
+    with st.container(border=True):
+        card_header("bar_chart", "Optimizer vs greedy baselines", "Weighted disruption mitigated for the SAME budget")
+        comp = pd.DataFrame([{"method": r["label"], "importance": r["importance_captured"]} for r in results])
+        fig = px.bar(comp, x="importance", y="method", orientation="h", color="importance",
+                     color_continuous_scale=[theme["amber-soft"], theme["green"]])
+        fig = style_fig(fig, height=240)
+        fig.update_coloraxes(showscale=False)
+        st.plotly_chart(fig, use_container_width=True)
+        baselines_best = max(r["importance_captured"] for r in results[1:])
+        lift = ilp["importance_captured"] - baselines_best
+        if lift > 0:
+            alert("good", "Optimal allocation",
+                  f"The ILP optimizer mitigates {lift:.1f} more weighted disruption than the best "
+                  f"greedy approach for the same officers and barricades.")
+
+    with st.container(border=True):
+        card_header("list", "Selected deployment plan", "Events the optimizer chose to fully resource")
+        sel = pool[ilp["selection"] == 1].sort_values("importance", ascending=False)
+        show = sel[["event_cause", "closure_prob", "impact", "expected_clearance",
+                    "personnel", "barricades", "importance"]].copy()
+        show.columns = ["Cause", "Closure prob", "Impact", "Clearance (min)",
+                        "Officers", "Barricades", "Priority weight"]
+        st.dataframe(show, use_container_width=True, hide_index=True)
 
 # --------------------------------------------------------------------------- #
-# 5) LEARNING LOOP
+# 6) LEARNING LOOP
 # --------------------------------------------------------------------------- #
 elif page == "Learning Loop":
     log_path = f"{MODELS_DIR}/feedback_log.csv"

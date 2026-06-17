@@ -35,26 +35,83 @@ class GridlockPredictor:
         self.g_clear = self.stats["global"]["clear"]
         self.barricade_threshold = 0.30      # operating point chosen from PR curve
 
+        # data-grounded resource estimates via historical analog retrieval (optional)
+        self.analogs = None
+        try:
+            from analogs import AnalogRetriever
+            self.analogs = AnalogRetriever(models_dir)
+        except Exception:
+            self.analogs = None
+
+        # probability calibrator (optional) — makes closure_prob mean what it says
+        self.calibrator = None
+        try:
+            with open(f"{models_dir}/closure_calibrator.pkl", "rb") as f:
+                self.calibrator = pickle.load(f)
+        except Exception:
+            self.calibrator = None
+
     # ------------------------------------------------------------------ #
     def predict(self, event: dict):
         X, enr = pp.featurize_event(event, self.stats)
         row = enr.iloc[0]
         p = float(self.clf.predict_proba(X)[:, 1][0])
+        p = self._calibrate(p)
 
         impact = pp.closure_impact_score(
             p, row.get("priority_encoded", 0), row.get("is_planned", 0),
             row.get("junction_hist_clearance", self.g_clear), self.g_clear)
         tier = pp.impact_tier(impact)
 
-        return {
+        # data-grounded path: retrieve similar historical incidents
+        analog_block = None
+        if self.analogs is not None:
+            try:
+                analog_block = self.analogs.query(event, closure_prob=p)
+            except Exception:
+                analog_block = None
+
+        if analog_block is not None:
+            expected_clearance = analog_block["expected_clearance_mins"]
+            resources = analog_block["resources"]
+        else:
+            expected_clearance = int(round(row.get("junction_hist_clearance", self.g_clear)))
+            resources = self._resources(p, impact, row)
+
+        out = {
             "closure_prob": round(p, 3),
             "impact_score": impact,
             "impact_tier": tier,
-            "expected_clearance_mins": int(round(row.get("junction_hist_clearance", self.g_clear))),
+            "expected_clearance_mins": int(expected_clearance),
             "is_known_location": bool(row.get("is_known_junction", 0)),
-            "resources": self._resources(p, impact, row),
+            "resources": resources,
             "explanations": self._explain(X),
         }
+        if analog_block is not None:
+            out["analogs"] = {
+                "n_matched": analog_block["n_matched"],
+                "clearance_p25": analog_block["clearance_p25"],
+                "clearance_p75": analog_block["clearance_p75"],
+                "analog_closure_rate": analog_block["analog_closure_rate"],
+                "examples": analog_block["analogs"],
+            }
+        return out
+
+    # ------------------------------------------------------------------ #
+    def _calibrate(self, p):
+        """Map the model's raw score to a calibrated probability (if a calibrator
+        was fit). Falls back to the raw value when none is available."""
+        c = self.calibrator
+        if not c or c.get("model") is None or c.get("method") in (None, "raw"):
+            return p
+        try:
+            if c["method"] == "isotonic":
+                return float(np.clip(c["model"].predict([p])[0], 0.0, 1.0))
+            if c["method"] == "platt":
+                return float(c["model"].predict_proba([[p]])[0, 1])
+        except Exception:
+            return p
+        return p
 
     # ------------------------------------------------------------------ #
     def _resources(self, p_closure, impact, row):

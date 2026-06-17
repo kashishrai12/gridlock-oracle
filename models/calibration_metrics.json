@@ -1,0 +1,19 @@
+{
+  "metrics": {
+    "raw": {
+      "brier": 0.1107,
+      "ece": 0.0862
+    },
+    "isotonic": {
+      "brier": 0.0963,
+      "ece": 0.0487
+    },
+    "platt": {
+      "brier": 0.1071,
+      "ece": 0.0542
+    }
+  },
+  "chosen": "isotonic",
+  "n_calib": 272,
+  "n_eval": 273
+}
