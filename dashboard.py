@@ -210,7 +210,29 @@ li[role="option"]:hover { background:var(--primary-soft) !important; }
 .stTimeInput input, .stNumberInput input, .stTextInput input { background:var(--surface) !important; color:var(--ink) !important; border-color:var(--border) !important; border-radius:10px !important; }
 .stSlider [data-baseweb="slider"] { color:var(--primary) !important; }
 .stButton button[kind="primary"] { background:var(--primary) !important; border-color:var(--primary) !important; color:var(--on-primary) !important; border-radius:10px !important; }
-.stButton button[kind="secondary"] { border-radius:10px !important; }
+/**********************/
+/* Secondary Buttons  */
+/**********************/
+.stButton button[kind="secondary"] {
+    background: var(--surface) !important;
+    color: var(--ink) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+}
+
+.stButton button[kind="secondary"]:hover {
+    background: var(--primary-soft) !important;
+    color: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+
+/* force text color */
+.stButton button[kind="secondary"] *,
+.stButton button[kind="secondary"] span,
+.stButton button[kind="secondary"] p,
+.stButton button[kind="secondary"] div {
+    color: inherit !important;
+}
 hr { border-color:var(--border) !important; }
 """
 
