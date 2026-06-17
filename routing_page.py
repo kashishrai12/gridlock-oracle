@@ -45,19 +45,75 @@ def render_routing_page(theme=None):
         is_dark = getattr(st.session_state, 'dark_mode', True)
         theme = {"surface": "#171A21", "ink": "#EDEEF3", "muted": "#919AAA"} if is_dark else {"surface": "#FFFFFF", "ink": "#15171F", "muted": "#3B3E46"}
     
-    st.title("Diversion Routes & Barricade Planner")
-    st.caption("Enter incident coordinates to generate live diversion routes and barricade entry points.")
+        st.markdown(f"""
+        <h1 style="
+            color:{theme['ink']};
+            font-size:3rem;
+            font-weight:800;
+            margin-bottom:0.2rem;
+        ">
+        Diversion Routes & Barricade Planner
+        </h1>
+        <p style="
+            color:{theme['muted']};
+            font-size:1rem;
+            margin-bottom:1.5rem;
+        ">
+        Enter incident coordinates to generate live diversion routes and barricade entry points.
+        </p>
+        """, unsafe_allow_html=True)
 
     col1, col2 = st.columns([1, 2])
 
     with col1:
-        st.subheader("Incident Details")
+        st.markdown(
+    f"""
+    <h2 style="
+        color:{theme['ink']};
+        font-weight:700;
+        margin-bottom:1rem;
+    ">
+    Incident Details
+    </h2>
+    """,
+    unsafe_allow_html=True
+)
         lat = st.number_input("Latitude", value=13.0108, format="%.6f", key="r_lat")
         lon = st.number_input("Longitude", value=77.5530, format="%.6f", key="r_lon")
         closure = st.checkbox("Road Closure Required", value=True, key="r_closure")
         radius = st.slider("Block Radius (metres)", 100, 800, 350, 50, key="r_radius")
 
-        st.markdown("**Quick Locations**")
+        st.markdown(
+            f"""
+            <div style="
+                color:{theme['ink']};
+                font-size:1.25rem;
+                font-weight:700;
+                margin-top:1rem;
+                margin-bottom:0.75rem;
+            ">
+                Quick Locations
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.markdown(f"""
+        <style>
+
+        /* Quick Location buttons */
+        div[data-testid="stButton"] button {{
+            background: {theme['surface']} !important;
+            color: {theme['ink']} !important;
+            border: 1px solid #444 !important;
+        }}
+
+        div[data-testid="stButton"] button p,
+        div[data-testid="stButton"] button span {{
+            color: {theme['ink']} !important;
+        }}
+
+        </style>
+        """, unsafe_allow_html=True)
         presets = {
             "Mekhri Circle": (13.0108, 77.5530),
             "Silk Board": (12.9172, 77.6210),
@@ -112,7 +168,7 @@ def render_routing_page(theme=None):
             is_dark = _detect_dark_mode()
             _render_map(clat, clon, routes, barricades, radius, is_dark)
             _render_route_cards(routes, is_dark, theme)
-            _render_barricade_table(barricades)
+            _render_barricade_table(barricades,theme)
         else:
             # Empty map centered on Bengaluru - use theme-aware tiles
             is_dark = _detect_dark_mode()
@@ -187,7 +243,18 @@ def _render_map(lat, lon, routes, barricades, radius, is_dark_mode=True):
 
 
 def _render_route_cards(routes, is_dark_mode=True, theme=None):
-    st.subheader("🛣️ Diversion Routes")
+    st.markdown(
+    f"""
+    <h2 style="
+        color:{theme['ink']};
+        font-weight:700;
+        margin-bottom:1rem;
+    ">
+    🛣️ Diversion Routes
+    </h2>
+    """,
+    unsafe_allow_html=True
+)
     
     # Use theme colors or fallback
     if theme is None:
@@ -220,8 +287,19 @@ def _render_route_cards(routes, is_dark_mode=True, theme=None):
             """, unsafe_allow_html=True)
 
 
-def _render_barricade_table(barricades):
-    st.subheader("🚧 Barricade Entry Points")
+def _render_barricade_table(barricades, theme):
+    st.markdown(
+    f"""
+    <h2 style="
+        color:{theme['ink']};
+        font-weight:700;
+        margin-bottom:1rem;
+    ">
+    🚧 Barricade Entry Points
+    </h2>
+    """,
+    unsafe_allow_html=True
+)
     if not barricades:
         st.info("No barricade points computed.")
         return

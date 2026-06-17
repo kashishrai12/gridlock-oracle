@@ -60,7 +60,35 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .stApp { background: var(--bg); }
 .block-container { padding-top: 1.4rem; max-width: 1320px; }
 #MainMenu, header[data-testid="stHeader"] { background: transparent; }
+/* Streamlit labels */
+label,
+.stCheckbox label,
+.stRadio label,
+.stSlider label,
+.stSelectbox label,
+.stNumberInput label,
+.stTextInput label {
+    color: var(--ink) !important;
+    opacity: 1 !important;
+}
 
+/* Markdown text */
+[data-testid="stMarkdownContainer"] {
+    color: var(--ink) !important;
+}
+
+[data-testid="stMarkdownContainer"] * {
+    color: inherit !important;
+}
+
+/* Headers */
+h1,h2,h3,h4,h5,h6,
+[data-testid="stHeading"] {
+    color: var(--ink) !important;
+}
+.stButton button {
+    color: var(--ink) !important;
+}
 /* ---------------------------------------------------------------- */
 /* Sidebar                                                            */
 /* ---------------------------------------------------------------- */
@@ -458,8 +486,14 @@ with tl:
         unsafe_allow_html=True,
     )
 with tr:
-    toggle_label = "☀️  Light" if st.session_state.dark_mode else "🌙  Dark"
-    if st.button(toggle_label, key="theme_toggle", use_container_width=True):
+    toggle_label = "☀️ Light" if st.session_state.dark_mode else "🌙 Dark"
+
+    if st.button(
+        toggle_label,
+        key="theme_toggle",
+        type="secondary",
+        use_container_width=True
+    ):
         st.session_state.dark_mode = not st.session_state.dark_mode
         st.rerun()
 
