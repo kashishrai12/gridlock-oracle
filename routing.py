@@ -320,4 +320,4 @@ if __name__ == '__main__':
         print(f"  {r['recommendation']} via {r['via']}")
         print(f"    {r['distance_km']}km ~{r['estimated_mins']}min | "
               f"congestion {r['congestion_score']} {r['congestion_label']} | cost {r['capacity_cost']}")
-    print("\n✅ Capacity-aware routing working.")
+    print("\nCapacity-aware routing working.")
