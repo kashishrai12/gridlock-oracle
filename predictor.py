@@ -82,6 +82,7 @@ class GridlockPredictor:
             "closure_prob": round(p, 3),
             "impact_score": impact,
             "impact_tier": tier,
+            "readiness_tier": pp.readiness_tier(p),
             "expected_clearance_mins": int(expected_clearance),
             "is_known_location": bool(row.get("is_known_junction", 0)),
             "resources": resources,

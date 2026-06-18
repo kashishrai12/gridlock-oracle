@@ -1,0 +1,6 @@
+threshold,flagged_pct,closures_covered_pct,precision,false_alarms,missed_closures,officer_hours_used,officer_hours_vs_blanket_pct
+0.15,24.2,52.6,0.227,102,27,3690,37.3
+0.2,20.4,49.1,0.252,83,29,3180,32.1
+0.25,17.8,49.1,0.289,69,29,3081,31.1
+0.3,17.1,47.4,0.29,66,30,2929,29.6
+0.35,16.0,45.6,0.299,61,31,2917,29.5

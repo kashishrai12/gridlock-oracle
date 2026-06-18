@@ -1,0 +1,38 @@
+{
+  "test_events": 545,
+  "actual_closures": 57,
+  "operating_threshold": 0.25,
+  "system": {
+    "closures_pre_positioned": 28,
+    "closures_covered_pct": 49.1,
+    "events_flagged_pct": 17.8,
+    "false_alarms": 69,
+    "missed_closures": 29,
+    "officer_hours": 3081
+  },
+  "blanket": {
+    "closures_covered_pct": 100.0,
+    "events_flagged_pct": 100.0,
+    "false_alarms": 488,
+    "officer_hours": 9898
+  },
+  "reactive": {
+    "closures_covered_pct": 0.0,
+    "events_flagged_pct": 0.0,
+    "officer_hours": 0
+  },
+  "tiered_readiness": {
+    "preposition_closures_pct": 49.1,
+    "standby_closures_pct": 7.0,
+    "monitor_missed_closures_pct": 43.9,
+    "any_readiness_recall_pct": 56.1,
+    "events_preposition_pct": 20.4,
+    "events_standby_pct": 9.9
+  },
+  "impact": {
+    "wasted_deployments_avoided_pct": 85.9,
+    "officer_hours_saved_vs_blanket": 6816,
+    "officer_hours_saved_pct": 68.9,
+    "efficiency_multiple": 2.8
+  }
+}

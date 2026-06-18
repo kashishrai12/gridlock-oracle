@@ -454,6 +454,12 @@ def load_event_pool(n, seed):
     return optimizer.build_event_pool(n=n, seed=seed)
 
 
+
+@st.cache_data
+def load_learning_curve():
+    import learning_loop
+    return learning_loop.simulate("data/flipkart_gridlock.csv", batches=10)
+
 def options(df, col, limit=200):
     if df is None or col not in df.columns:
         return []
@@ -520,6 +526,7 @@ PAGE_META = {
                        "Log whether a closure was actually needed, to refine the model over time."),
     "Deployment Optimizer": ("Operations", "Deployment optimizer",
                              "Allocate a limited pool of officers and barricades across the day's predicted incidents to mitigate the most disruption."),
+    
 }
 
 tl, tr = st.columns([6, 1])
@@ -865,27 +872,91 @@ elif page == "Deployment Optimizer":
 # 6) LEARNING LOOP
 # --------------------------------------------------------------------------- #
 elif page == "Learning Loop":
-    log_path = f"{MODELS_DIR}/feedback_log.csv"
+    import time
+    import numpy as np
+    from sklearn.isotonic import IsotonicRegression
+    import learning_loop as ll
 
-    with st.form("fb"):
-        card_header("loop", "Log an outcome", "Help the model learn from what actually happened")
-        junction = st.selectbox("Junction", options(enriched, "junction") or ["Unknown"])
-        prob = st.slider("Predicted closure probability", 0.0, 1.0, 0.5, 0.01)
-        actual = st.radio("Was a road closure actually required?", ["Yes", "No"], horizontal=True)
-        submitted = st.form_submit_button("Submit feedback", type="primary")
-    if submitted:
-        row = {"timestamp": dt.datetime.now().isoformat(), "junction": junction,
-               "predicted_closure_prob": prob, "actual_closure": int(actual == "Yes")}
-        df = pd.DataFrame([row])
-        df.to_csv(log_path, mode="a", header=not os.path.exists(log_path), index=False)
-        alert("good", "Logged", "Retraining triggers automatically once ≥50 new records accumulate.")
+    enr = load_enriched()
 
-    if os.path.exists(log_path):
-        fb = pd.read_csv(log_path)
-        stat_grid([stat_card("check_circle", "Records logged", f"{len(fb):,}", tone="info")])
-        if len(fb) >= 2:
-            with st.container(border=True):
-                card_header("bar_chart", "Predicted probability vs actual outcome", None)
-                fig = px.scatter(fb, x="predicted_closure_prob", y="actual_closure",
-                                 color_discrete_sequence=[theme["primary"]])
-                st.plotly_chart(style_fig(fig, height=280), use_container_width=True)
+    # ---- Section 1: human-in-the-loop feedback (the deployment input mechanism) ----
+    with st.container(border=True):
+        card_header("loop", "Human-in-the-loop feedback",
+                    "In real deployment, a dispatcher confirms each outcome with one tap")
+        if "fb_event" not in st.session_state:
+            st.session_state.fb_event = enr.sample(1).iloc[0].to_dict()
+        ev = st.session_state.fb_event
+        prob = float(ev.get("pred_closure_prob", 0.1) or 0.1)
+        st.markdown(f"**Incident:** {ev.get('event_cause','?')} · {ev.get('veh_type','?')} "
+                    f"&nbsp;|&nbsp; model predicted closure risk **{prob*100:.0f}%**")
+        cc = st.columns(3)
+        if cc[0].button("✅ Closure WAS needed", use_container_width=True):
+            ll.log_outcome(ev.get("id", "manual"), prob, 1)
+            st.session_state.fb_event = enr.sample(1).iloc[0].to_dict(); st.toast("Logged ✓"); st.rerun()
+        if cc[1].button("❌ NOT needed", use_container_width=True):
+            ll.log_outcome(ev.get("id", "manual"), prob, 0)
+            st.session_state.fb_event = enr.sample(1).iloc[0].to_dict(); st.toast("Logged ✓"); st.rerun()
+        if cc[2].button("🔄 Recalibrate now", use_container_width=True):
+            n = ll.recalibrate_from_feedback(min_n=1)
+            st.success(f"Recalibrated from {n} logged outcomes." if n else "Need more varied feedback first.")
+        sfb = ll.feedback_stats()
+        st.caption(f"Outcomes logged this session: {sfb['n']}. In production these accumulate and recalibrate "
+                   "the model continuously — the curves below prove that doing so improves accuracy.")
+
+    # ---- Section 2: live proof the feedback improves the model ----
+    with st.container(border=True):
+        card_header("bar_chart", "Proof it works: watch calibration error drop as feedback streams in",
+                    "Real outcomes replayed chronologically — static model vs continuous relearning")
+        colA, colB = st.columns([1, 1])
+        with colA:
+            speed = st.select_slider("Speed", ["slow", "medium", "fast"], value="medium")
+        with colB:
+            start = st.button("▶ Start live feedback", type="primary", use_container_width=True)
+        metric_ph = st.empty(); chart_ph = st.empty(); status_ph = st.empty()
+
+        p, y = ll._raw_probs_chrono("data/flipkart_gridlock.csv")
+        n = len(p); step = max(1, n // 40)
+        pause = {"slow": 0.25, "medium": 0.10, "fast": 0.03}[speed]
+
+        def _ece(yt, pt, bins=10):
+            edges = np.linspace(0, 1, bins + 1)
+            idx = np.clip(np.digitize(pt, edges) - 1, 0, bins - 1)
+            e = 0.0
+            for b in range(bins):
+                m = idx == b
+                if m.sum():
+                    e += (m.sum() / len(yt)) * abs(pt[m].mean() - yt[m].mean())
+            return e
+
+        if start:
+            acc_p, acc_y, history = [], [], []
+            cal = None
+            for i in range(0, n, step):
+                bp, by = p[i:i + step], y[i:i + step]
+                if len(bp) == 0:
+                    continue
+                cp = cal.predict(bp) if cal is not None else bp
+                if len(set(by)) > 1:
+                    history.append({"outcomes_seen": i + len(bp),
+                                    "static (no learning)": round(_ece(by, bp), 4),
+                                    "learning": round(_ece(by, cp), 4)})
+                acc_p.extend(bp.tolist()); acc_y.extend(by.tolist())
+                if len(set(acc_y)) > 1:
+                    cal = IsotonicRegression(out_of_bounds="clip").fit(np.array(acc_p), np.array(acc_y))
+                if len(history) >= 2:
+                    warm = pd.DataFrame(history).iloc[1:]
+                    ms, ml = warm["static (no learning)"].mean(), warm["learning"].mean()
+                    drop = (100 * (ms - ml) / ms) if ms else 0
+                    metric_ph.metric("Avg calibration error — with learning", f"{ml:.3f}",
+                                     f"{drop:.0f}% lower than static", delta_color="inverse")
+                    dfh = pd.DataFrame(history).melt(id_vars="outcomes_seen",
+                            value_vars=["static (no learning)", "learning"],
+                            var_name="mode", value_name="ECE")
+                    fig = px.line(dfh, x="outcomes_seen", y="ECE", color="mode", markers=True,
+                                  color_discrete_map={"static (no learning)": theme["red"],
+                                                      "learning": theme["green"]})
+                    fig = style_fig(fig, height=320)
+                    chart_ph.plotly_chart(fig, use_container_width=True)
+                status_ph.caption(f"Fed {i + len(bp):,} of {n:,} real outcomes")
+                time.sleep(pause)
+            warm = pd.DataFrame(history).iloc[1:]

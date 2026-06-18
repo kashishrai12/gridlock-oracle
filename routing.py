@@ -283,10 +283,50 @@ def full_routing_analysis(lat, lon, requires_closure=True, radius_m=350,
     barricades = find_barricade_points(lat, lon, radius_m=radius_m)
     diversions = get_diversion_routes(lat, lon, radius_m=radius_m,
                                       congestion=congestion, when=when)
+
+    # optional: upgrade each route's congestion from HISTORICAL to LIVE via Mappls
+    diversions = _enrich_with_live_traffic(diversions)
+
     return {'barricade_points': barricades, 'barricade_count': len(barricades),
             'diversions': diversions,
             'capacity_aware': diversions.get('capacity_aware', False),
+            'live_traffic': diversions.get('live_traffic', False),
             'routing_active': requires_closure or diversions['status'].endswith('success')}
+
+
+def _enrich_with_live_traffic(diversions):
+    """If Mappls is configured, replace each route's historical congestion_score with a
+    LIVE traffic factor and re-rank. Silent no-op on any failure."""
+    try:
+        import mappls
+        mc = mappls.client()
+        if not mc.is_configured():
+            return diversions
+        routes = diversions.get('routes', [])
+        any_live = False
+        for r in routes:
+            coords = r.get('coords')
+            if not coords or len(coords) < 2:
+                continue
+            s, e = coords[0], coords[-1]
+            f = mc.live_congestion_factor(s[0], s[1], e[0], e[1])
+            if f is not None:
+                load = min(max(f - 1.0, 0.0), 1.0)         # ratio>=1 -> 0..1 load
+                r['congestion_score'] = round(load, 2)
+                r['congestion_label'] = _congestion_label(load)
+                r['live_factor'] = f
+                r['live_traffic'] = True
+                any_live = True
+        if any_live:
+            routes.sort(key=lambda r: r.get('congestion_score', 1.0))
+            for i, r in enumerate(routes):
+                r['rank'] = i + 1
+                r['recommendation'] = "⭐ RECOMMENDED" if i == 0 else "ALTERNATE" if i == 1 else "BACKUP"
+            diversions['live_traffic'] = True
+            diversions['capacity_aware'] = True
+    except Exception:
+        pass
+    return diversions
 
 
 # ──────────────────────────────────────────────
@@ -320,4 +360,4 @@ if __name__ == '__main__':
         print(f"  {r['recommendation']} via {r['via']}")
         print(f"    {r['distance_km']}km ~{r['estimated_mins']}min | "
               f"congestion {r['congestion_score']} {r['congestion_label']} | cost {r['capacity_cost']}")
-    print("\nCapacity-aware routing working.")
+    print("\n✅ Capacity-aware routing working.")

@@ -12,3 +12,7 @@ plotly==5.18.0
 requests==2.31.0
 pydantic==2.5.3
 networkx
+scipy
+osmnx            
+requests
+sentence-transformers   

@@ -374,6 +374,21 @@ def impact_tier(score):
     return "LOW"
 
 
+# Readiness tiers from the calibrated closure probability — a graded operational posture
+# (full deploy / staged / watch) instead of a binary deploy-or-ignore. Single source of
+# truth shared by predictor.py and evaluate.py.
+READINESS_PREPOSITION = 0.20     # >=20% closure prob (33-35% real rate) -> deploy now
+READINESS_STANDBY = 0.10         # 10-20% (16-18% real rate, above base) -> stage resources
+
+
+def readiness_tier(p):
+    if p >= READINESS_PREPOSITION:
+        return "PRE-POSITION"
+    if p >= READINESS_STANDBY:
+        return "STANDBY"
+    return "MONITOR"
+
+
 # ----------------------------------------------------------------------------- #
 # Closure-classifier feature contract + single-event inference (used by predictor)
 # ----------------------------------------------------------------------------- #
