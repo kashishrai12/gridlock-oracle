@@ -54,6 +54,7 @@ THEME_DARK = {
 }
 
 APP_CSS_STATIC = """
+*, *::before, *::after { box-sizing: border-box; }
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
@@ -152,7 +153,9 @@ button[data-testid="baseButton-secondary"]:has(div:contains("Dark")) { }
   background:var(--surface) !important; border:1px solid var(--border) !important;
   border-radius:18px !important; box-shadow:var(--shadow); margin-bottom:1.1rem;
 }
-[data-testid="stVerticalBlockBorderWrapper"] > div, [data-testid="stContainer"] > div { padding:1.15rem 1.3rem; }
+[data-testid="stVerticalBlockBorderWrapper"], [data-testid="stContainer"] {
+  padding:1.15rem 1.3rem; box-sizing:border-box;
+}
 [data-testid="stForm"] { background:var(--surface) !important; border:1px solid var(--border) !important;
   border-radius:18px !important; box-shadow:var(--shadow); padding:1.15rem 1.3rem !important; margin-bottom:1.1rem; }
 
