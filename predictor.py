@@ -55,8 +55,8 @@ class GridlockPredictor:
     def predict(self, event: dict):
         X, enr = pp.featurize_event(event, self.stats)
         row = enr.iloc[0]
-        p = float(self.clf.predict_proba(X)[:, 1][0])
-        p = self._calibrate(p)
+        p_raw = float(self.clf.predict_proba(X)[:, 1][0])
+        p = self._calibrate(p_raw)
 
         impact = pp.closure_impact_score(
             p, row.get("priority_encoded", 0), row.get("is_planned", 0),
@@ -80,6 +80,7 @@ class GridlockPredictor:
 
         out = {
             "closure_prob": round(p, 3),
+            "closure_prob_raw": round(p_raw, 3),
             "impact_score": impact,
             "impact_tier": tier,
             "readiness_tier": pp.readiness_tier(p),

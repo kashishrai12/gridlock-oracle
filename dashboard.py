@@ -422,6 +422,34 @@ def style_fig(fig, height=320):
 # --------------------------------------------------------------------------- #
 # Cached loaders
 # --------------------------------------------------------------------------- #
+@st.cache_data
+def load_replay():
+    import live_feed
+    return live_feed.prepare_replay("data/flipkart_gridlock.csv", load_predictor(), max_events=60)
+
+@st.cache_data
+def load_conformal():
+    import os, pickle
+    f = f"{MODELS_DIR}/conformal.pkl"
+    return pickle.load(open(f, "rb")) if os.path.exists(f) else None
+
+@st.cache_data
+def load_survival_curves():
+    import os
+    f = f"{MODELS_DIR}/survival_curves.csv"
+    return pd.read_csv(f) if os.path.exists(f) else None
+
+@st.cache_data
+def load_survival_params():
+    import os, pickle
+    f = f"{MODELS_DIR}/survival_params.pkl"
+    return pickle.load(open(f, "rb")) if os.path.exists(f) else None
+
+@st.cache_resource
+def load_hawkes():
+    import hawkes
+    return hawkes.HawkesModel()
+
 @st.cache_resource
 def load_predictor():
     return GridlockPredictor(MODELS_DIR)
@@ -438,6 +466,10 @@ def load_csv(name):
     p = f"{MODELS_DIR}/{name}"
     return pd.read_csv(p) if os.path.exists(p) else None
 
+@st.cache_resource
+def load_hawkes():
+    import hawkes
+    return hawkes.HawkesModel()
 
 @st.cache_data
 def load_cascades():
@@ -490,7 +522,7 @@ inject_css(theme)
 
 NAV_GROUPS = [
     ("Forecast", [("grid", "Predict Event"), ("map_pin", "Risk Map"), ("bar_chart", "Analytics"), ("alert_triangle", "Event Cascades")]),
-    ("Operations", [("route", "Diversion & Barricades"), ("users", "Deployment Optimizer"), ("loop", "Learning Loop")]),
+    ("Operations", [("route", "Diversion & Barricades"), ("users", "Deployment Optimizer"), ("loop", "Learning Loop"),  ("activity", "Live Feed")]),
 ]
 
 with st.sidebar:
@@ -526,6 +558,7 @@ PAGE_META = {
                        "Log whether a closure was actually needed, to refine the model over time."),
     "Deployment Optimizer": ("Operations", "Deployment optimizer",
                              "Allocate a limited pool of officers and barricades across the day's predicted incidents to mitigate the most disruption."),
+    "Live Feed": ("LIVE OPS", "Live incident feed", "Real-time incidents scored as they arrive"),  
     
 }
 
@@ -596,6 +629,16 @@ if page == "Predict Event":
         }
         r = predictor.predict(event)
 
+        conf = load_conformal()
+        if conf and "closure_prob_raw" in r:
+            import conformal as _cf
+            label = _cf.classify(r["closure_prob_raw"], conf["qhat"])
+            _tone = theme["green"] if label.startswith("CONFIDENT") else "#f59e0b"
+            st.markdown(f'<span style="background:{_tone};color:#fff;font-weight:700;'
+                        f'padding:3px 10px;border-radius:5px;font-size:0.85rem;">{label}</span> '
+                        f'<span style="color:#94a3b8;font-size:0.8rem;">&nbsp;90%-coverage guaranteed</span>',
+                        unsafe_allow_html=True)
+            
         g1, g2 = st.columns([1, 1])
         with g1:
             risk_meter(r["closure_prob"])
@@ -733,6 +776,24 @@ elif page == "Analytics":
                 fig = px.histogram(cl, x="clearance_mins", nbins=40, color_discrete_sequence=[theme["primary"]])
                 st.plotly_chart(style_fig(fig, height=280), use_container_width=True)
 
+        sc = load_survival_curves(); sp = load_survival_params()
+
+    if sc is not None:
+        with st.container(border=True):
+            card_header("activity", "Clearance survival analysis",
+                        "P(incident still blocking the road) over time — handles censored long incidents")
+            if sp:
+                stat_grid([
+                    stat_card("loop", "Median time-to-clear", f"{sp['medians'].get('overall', 0):.0f} min", tone="info"),
+                    stat_card("check_circle", "Events used", f"{sp['n_observed'] + sp['n_censored']}",
+                              f"{sp['n_censored']} censored (regression dropped these)", tone="good"),
+                    stat_card("bar_chart", "Ranking concordance", f"{sp['concordance']:.2f}", "0.5 = random", tone="info"),
+                ])
+            plot = sc[sc["t"] <= 300]
+            fig = px.line(plot, x="t", y="S", color="group")
+            fig = style_fig(fig, height=340)
+            fig.update_layout(xaxis_title="minutes since incident", yaxis_title="P(still blocking)")
+            st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------------------------------- #
 # 3b) EVENT CASCADES
@@ -743,7 +804,32 @@ elif page == "Event Cascades":
         alert("warn", "No cascades available",
               "Run <code>python cascade.py --data data/flipkart_gridlock.csv</code> to generate them.")
         st.stop()
-
+    
+    hm = load_hawkes()
+    n = hm.branching_factor; hl = hm.half_life_min; f60 = hm.expected_followons(60)
+    stat_grid([
+        stat_card("alert_triangle", "Branching factor", f"{n:.2f}",
+                  "follow-on incidents per incident (Hawkes)", tone="bad" if n > 0.3 else "info"),
+        stat_card("loop", "Cascade half-life", f"{hl:.0f} min", "elevated-risk window", tone="info"),
+        stat_card("activity", "Expected follow-ons / 1h", f"{f60:.2f}", "after an incident", tone="info"),
+    ])
+    with st.container(border=True):
+        card_header("activity", "Cascade risk after an incident",
+                    "Self-exciting (Hawkes) intensity — spikes when an incident is reported, then decays")
+        cda = st.columns(2)
+        with cda[0]:
+            n_recent = st.number_input("Incidents just reported here", 1, 5, 1)
+        with cda[1]:
+            horizon = st.slider("Minutes ahead", 30, 240, 180, 30)
+        xs, ys = hm.decay_curve(n_recent=n_recent, horizon_min=horizon)
+        dfc = pd.DataFrame({"minutes after incident": xs, "risk vs normal (x)": ys})
+        fig = px.line(dfc, x="minutes after incident", y="risk vs normal (x)", markers=True,
+                      color_discrete_sequence=[theme["red"]])
+        fig = style_fig(fig, height=300)
+        fig.add_hline(y=1.0, line_dash="dash", line_color=theme["muted"])
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption(f"Risk jumps to {ys[0]:.1f}× normal right after an incident, halving every {hl:.0f} min.")
+        
     stat_grid([
         stat_card("alert_triangle", "Cascade pairs", f"{len(cas):,}", "overlapping incidents", tone="info"),
         stat_card("octagon", "High-risk (≥7)", f"{int((cas['cascade_risk'] >= 7).sum()):,}", "compound risk", tone="bad"),
@@ -960,3 +1046,76 @@ elif page == "Learning Loop":
                 status_ph.caption(f"Fed {i + len(bp):,} of {n:,} real outcomes")
                 time.sleep(pause)
             warm = pd.DataFrame(history).iloc[1:]
+
+
+
+# --------------------------------------------------------------------------- #
+# 7) LIVE FEED (real TomTom feed if key set, else replay a real day live)
+# --------------------------------------------------------------------------- #
+elif page == "Live Feed":
+    import time, live_feed
+    hm = load_hawkes()
+
+    # ---- Mode A: real live incidents from TomTom ----
+    if live_feed.source_status() == "live-api":
+        st.caption("🟢 Live — TomTom incident feed, Bengaluru")
+        if st.button("🔄 Refresh live incidents", type="primary"):
+            st.rerun()
+        live = live_feed.live_scored(load_predictor())
+        if live is None or live.empty:
+            st.info("No live incidents reported in Bengaluru right now. "
+                    "(Try during peak hours — the replay mode below always has data.)")
+        else:
+            risk = live_feed.live_cascade_risk(live, 0, hm)
+            stat_grid([
+                stat_card("activity", "Live incidents now", f"{len(live)}", "TomTom feed", tone="info"),
+                stat_card("alert_triangle", "Expected follow-ons (next 1h)", f"{risk:.1f}",
+                          "from live incidents (Hawkes)", tone="bad" if risk > 3 else "info"),
+                stat_card("shield", "Need pre-position",
+                          f"{int((live['readiness'] == 'PRE-POSITION').sum())}", "high-risk now", tone="bad"),
+            ])
+            show = live[["time", "cause", "location", "closure_prob", "impact", "readiness"]].copy()
+            show.columns = ["Time", "Cause", "Location", "Closure prob", "Impact", "Readiness"]
+            st.dataframe(show, use_container_width=True, hide_index=True)
+
+    # ---- Mode B: replay a real high-incident day as a live stream ----
+    else:
+        df, day = load_replay()
+        src_note = "replaying real incidents from " + day
+        st.caption(f"▶ {src_note} · {len(df)} incidents")
+        cc = st.columns([1, 1])
+        with cc[0]:
+            speed = st.select_slider("Speed", ["slow", "medium", "fast"], value="medium")
+        with cc[1]:
+            play = st.button("▶ Start live feed", type="primary", use_container_width=True)
+        metric_ph = st.empty(); table_ph = st.empty(); status_ph = st.empty()
+        pause = {"slow": 0.30, "medium": 0.15, "fast": 0.05}[speed]
+        tmax = df["t_min"].max(); step = max(tmax / 80.0, 1.0)
+
+        if play:
+            sim = 0.0
+            while sim <= tmax:
+                act = live_feed.active_incidents(df, sim, lookback_min=45)
+                risk = live_feed.live_cascade_risk(act, sim, hm)
+                high = int((act["readiness"] == "PRE-POSITION").sum()) if len(act) else 0
+                with metric_ph.container():
+                    stat_grid([
+                        stat_card("activity", "Active incidents", f"{len(act)}",
+                                  f"{int(sim//60):02d}h{int(sim%60):02d}m into the day", tone="info"),
+                        stat_card("alert_triangle", "Expected follow-ons (next 1h)", f"{risk:.1f}",
+                              "from active incidents (Hawkes)", tone="bad" if risk > 3 else "info"),
+                        stat_card("shield", "Need pre-position", f"{high}",
+                                  "high-risk active now", tone="bad" if high else "good"),
+                    ])
+                with table_ph.container():
+                    if len(act):
+                        show = act[["time", "cause", "location", "closure_prob", "impact", "readiness"]].copy()
+                        show.columns = ["Time", "Cause", "Location", "Closure prob", "Impact", "Readiness"]
+                        st.dataframe(show, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No active incidents in this window yet…")
+                status_ph.caption(f"Simulated time: {int(sim//60):02d}:{int(sim%60):02d}")
+                sim += step; time.sleep(pause)
+            status_ph.success(f"Replay complete — {len(df)} real incidents from {day} streamed and scored live.")
+        else:
+            st.info("Press **Start live feed** to stream a real high-incident day, scored live by the system.")
