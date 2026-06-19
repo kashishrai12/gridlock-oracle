@@ -30,6 +30,14 @@ from predictor import GridlockPredictor
 MODELS_DIR = "models"
 st.set_page_config(page_title="Gridlock Oracle", layout="wide", page_icon="🚦")
 
+import os
+try:
+    import streamlit as st
+    for _k in ["TOMTOM_API_KEY", "MAPPLS_CLIENT_ID", "MAPPLS_CLIENT_SECRET", "MAPPLS_REST_KEY"]:
+        if _k in st.secrets:
+            os.environ[_k] = str(st.secrets[_k])
+except Exception:
+    pass
 
 # --------------------------------------------------------------------------- #
 # Theme — every color the app uses, light and dark, in one place

@@ -10,7 +10,7 @@ venv/
 .venv/
 env/
 ENV/
-gridlock/            # local conda/venv folder name
+gridlock/
 
 # ── OS / IDE ───────────────────────────────────────────
 .DS_Store
@@ -19,19 +19,21 @@ Thumbs.db
 .vscode/
 *.swp
 
-# ── Data (competition dataset — not redistributed) ─────
+# ── Data ───────────────────────────────────────────────
+# Ignore stray CSVs, but KEEP the main dataset the app needs at runtime
 data/*.csv
 data/*.tsv
+!data/flipkart_gridlock.csv
 
 # ── Large / regenerable artifacts ──────────────────────
-# The OSM road graph is large (tens of MB) and rebuildable via:
-#   python routing.py --download
+# Big OSM road graph is rebuildable via: python routing.py --download
 models/*.graphml
 models/bengaluru_graph.graphml
-
-# Feedback log is runtime-generated
+# Runtime-generated feedback log
 models/feedback_log.csv
+# (all other models/* artifacts ARE committed — needed to run)
 
-# ── Streamlit secrets / logs ───────────────────────────
+# ── Secrets / logs ─────────────────────────────────────
 .streamlit/secrets.toml
+.env
 *.log
