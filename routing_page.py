@@ -13,7 +13,7 @@ from streamlit_folium import st_folium
 import routing   # local module — direct call, no HTTP
 
 ROUTE_COLORS = ['#00ff88', '#ffaa00', '#ff4444']
-ROUTE_LABELS = ['⭐ RECOMMENDED', 'ALTERNATE', 'BACKUP']
+ROUTE_LABELS = ['RECOMMENDED', 'ALTERNATE', 'BACKUP']
 
 
 def _base_map(lat, lon, zoom=14):
@@ -92,7 +92,7 @@ def render_routing_page(theme=None, **kwargs):
             barricades = data['barricade_points']
 
             if data['diversions'].get('live_traffic'):
-                st.success("🟢 **LIVE traffic-aware routing (Mappls)** : route congestion "
+                st.success("🟢 **LIVE traffic-aware routing (Mappls)** — route congestion "
                            "reflects current on-road traffic from Mappls, not historical "
                            "averages. Routes re-ranked by live conditions.")
             elif data['diversions'].get('capacity_aware'):
@@ -175,34 +175,35 @@ def _render_map(lat, lon, routes, barricades, radius):
 
 
 def _render_route_cards(routes):
-    st.subheader("🛣️ Diversion Routes")
+    st.subheader("Diversion Routes")
     cols = st.columns(len(routes))
     for i, (col, route) in enumerate(zip(cols, routes)):
         color = ROUTE_COLORS[i % len(ROUTE_COLORS)]
         with col:
             st.markdown(f"""
-            <div style="border-left:4px solid {color};background:#1e293b;
-                        padding:12px;border-radius:6px;">
-                <div style="color:{color};font-weight:700;font-size:0.85rem;">
+            <div style="border-left:4px solid {color};background:var(--surface);
+                        border:1px solid var(--border);border-left:4px solid {color};
+                        padding:12px;border-radius:10px;">
+                <div style="color:{color};font-weight:700;font-size:0.85rem;letter-spacing:.02em;">
                     {route['recommendation']}
                 </div>
-                <div style="font-size:1.1rem;font-weight:600;margin:4px 0;">
+                <div style="font-size:1.1rem;font-weight:600;margin:4px 0;color:var(--ink);">
                     {route['via']}
                 </div>
-                <div style="color:#94a3b8;font-size:0.9rem;">
-                    📏 {route['distance_km']} km &nbsp;|&nbsp; ⏱ ~{route['estimated_mins']} min
+                <div style="color:var(--muted);font-size:0.9rem;">
+                    {route['distance_km']} km &nbsp;|&nbsp; ~{route['estimated_mins']} min
                 </div>
-                <div style="color:#cbd5e1;font-size:0.9rem;margin-top:4px;">
-                    🚦 congestion: {route.get('congestion_label', 'n/a')}
+                <div style="color:var(--ink);font-size:0.9rem;margin-top:4px;">
+                    congestion: {route.get('congestion_label', 'n/a')}
                     ({route.get('congestion_score', 0)})
-                    {('&nbsp;·&nbsp;🟢 live ' + str(route.get('live_factor')) + '×') if route.get('live_traffic') else ''}
+                    {('&nbsp;·&nbsp;live ' + str(route.get('live_factor')) + '×') if route.get('live_traffic') else ''}
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
 
 def _render_barricade_table(barricades):
-    st.subheader("🚧 Barricade Entry Points")
+    st.subheader("Barricade Entry Points")
     if not barricades:
         st.info("No barricade points computed.")
         return

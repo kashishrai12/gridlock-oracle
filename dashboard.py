@@ -59,7 +59,7 @@ APP_CSS_STATIC = """
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .stApp { background: var(--bg); }
-.block-container { padding-top: 1.4rem; max-width: 1320px; }
+.block-container { padding-top: 1.4rem; max-width: 1600px; }
 #MainMenu, header[data-testid="stHeader"] { background: transparent; }
 /* Streamlit labels */
 label,
@@ -524,7 +524,7 @@ theme = THEME_DARK if st.session_state.dark_mode else THEME_LIGHT
 inject_css(theme)
 
 NAV_GROUPS = [
-    ("Forecast", [("grid", "Predict Event"), ("map_pin", "Risk Map"), ("bar_chart", "Analytics"), ("alert_triangle", "Event Cascades")]),
+    ("Forecast", [("grid", "Predict Event"), ("bar_chart", "Analytics"), ("alert_triangle", "Event Cascades")]),
     ("Operations", [("route", "Diversion & Barricades"), ("users", "Deployment Optimizer"), ("loop", "Learning Loop"),  ("activity", "Live Feed")]),
 ]
 
@@ -1061,7 +1061,8 @@ elif page == "Live Feed":
 
     # ---- Mode A: real live incidents from TomTom ----
     if live_feed.source_status() == "live-api":
-        st.caption("🟢 Live — TomTom incident feed, Bengaluru")
+        st.markdown('<p style="color:var(--ink);font-weight:600;">🟢 Live — TomTom incident feed, Bengaluru</p>',
+                    unsafe_allow_html=True)
         if st.button("🔄 Refresh live incidents", type="primary"):
             st.rerun()
         live = live_feed.live_scored(load_predictor())
@@ -1077,9 +1078,21 @@ elif page == "Live Feed":
                 stat_card("shield", "Need pre-position",
                           f"{int((live['readiness'] == 'PRE-POSITION').sum())}", "high-risk now", tone="bad"),
             ])
-            show = live[["time", "cause", "location", "closure_prob", "impact", "readiness"]].copy()
-            show.columns = ["Time", "Cause", "Location", "Closure prob", "Impact", "Readiness"]
-            st.dataframe(show, use_container_width=True, hide_index=True)
+            mapfig = live_feed.risk_map_figure(live, hm)
+            if mapfig is not None:
+                lc, rc = st.columns([1, 1])
+                with lc:
+                    show = live[["time", "cause", "location", "closure_prob", "impact", "readiness"]].copy()
+                    show.columns = ["Time", "Cause", "Location", "Closure prob", "Impact", "Readiness"]
+                    st.dataframe(show, use_container_width=True, hide_index=True, height=440)
+                with rc:
+                    st.plotly_chart(mapfig, use_container_width=True)
+            else:
+                show = live[["time", "cause", "location", "closure_prob", "impact", "readiness"]].copy()
+                show.columns = ["Time", "Cause", "Location", "Closure prob", "Impact", "Readiness"]
+                st.dataframe(show, use_container_width=True, hide_index=True)
+
+        
 
     # ---- Mode B: replay a real high-incident day as a live stream ----
     else:
@@ -1122,3 +1135,6 @@ elif page == "Live Feed":
             status_ph.success(f"Replay complete — {len(df)} real incidents from {day} streamed and scored live.")
         else:
             st.info("Press **Start live feed** to stream a real high-incident day, scored live by the system.")
+
+
+            

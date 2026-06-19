@@ -95,39 +95,38 @@ def real_feed_incidents(bbox=BENGALURU_BBOX):
                 "severity": props.get("magnitudeOfDelay", 0),
                 "minutes_ago": mins_ago,
             })
-        return out
+        return (out[:150] if out else None)
     except Exception:
         return None
 
 
 def live_scored(predictor, bbox=BENGALURU_BBOX):
     """Triage live incidents using what TomTom actually provides (category + severity).
-    The closure model needs features TomTom doesn't supply, so we triage on real signal."""
+    The closure model needs rich features (police station, vehicle type, location history)
+    that a live incident feed does not supply, so for live data we triage on the real
+    signal TomTom gives us — magnitude-of-delay and incident category — instead of forcing
+    the closure model on inputs it can't use. (The closure model still powers the Predict
+    Event page and the replay view, where full features exist.)"""
     inc = real_feed_incidents(bbox)
     if not inc:
         return None
-
-    # readiness from TomTom magnitudeOfDelay (severity) + category
-    HIGH_CATS = {"Road closed", "Accident", "Flooding"}       # closure-likely
-    MED_CATS = {"Lane closed", "Broken-down vehicle", "Road works"}
-
     rows = []
     for a in inc:
-        sev = int(a.get("severity") or 0)        # 0..4 (TomTom magnitudeOfDelay)
+        sev = int(a.get("severity") or 0)        # TomTom magnitudeOfDelay, 0..4
         label = a["label"]
-        # tier logic: severe delay OR closure-type -> pre-position; moderate -> standby; else monitor
-        if label in {"Road closed", "Accident", "Flooding"} or sev >= 4:
+        if sev >= 4 or label == "Accident":
             tier, score = "PRE-POSITION", 0.65
-        elif label in {"Lane closed", "Broken-down vehicle", "Road works"} or sev == 3:
-            tier, score = "STANDBY", 0.3
+        elif sev >= 2 or label in {"Road closed", "Flooding", "Lane closed", "Broken-down vehicle"}:
+            tier, score = "STANDBY", 0.30
         else:
             tier, score = "MONITOR", 0.12
         rows.append({"t_min": -a["minutes_ago"], "time": "now",
-                     "cause": label, "vehicle": "—", "location": a["location"],
+                     "cause": label, "vehicle": "-", "location": a["location"],
                      "lat": a["lat"], "lon": a["lon"],
                      "closure_prob": score, "impact": round(2 + sev * 1.8, 1),
                      "readiness": tier})
     return pd.DataFrame(rows).sort_values("closure_prob", ascending=False).reset_index(drop=True)
+
 
 # --------------------------------------------------------------------------- #
 # REPLAY source (always works)
@@ -171,20 +170,50 @@ def prepare_replay(path, predictor, max_events=80):
     return pd.DataFrame(rows), str(busiest)
 
 
-def active_incidents(replay_df, sim_now_min, lookback_min=45):
+def active_incidents(replay_df, sim_now_min, lookback_min=90):
     m = (replay_df["t_min"] <= sim_now_min) & (replay_df["t_min"] > sim_now_min - lookback_min)
     return replay_df[m].sort_values("t_min", ascending=False)
 
 
 def live_cascade_risk(active_df, sim_now_min, hawkes_model):
-    """Expected follow-on incidents in the next 60 min from currently-active incidents."""
+    """Expected follow-on incidents in the next 60 min from currently-active incidents.
+    Bounded so a large live pull can't produce a runaway number."""
     if hawkes_model is None or active_df.empty:
         return 0.0
-    # each active incident contributes branching * decay toward future follow-ons
     import math
-    alpha = hawkes_model.p["alpha"]; beta = hawkes_model.p["beta"]
+    alpha = hawkes_model.p["alpha"]; beta = max(hawkes_model.p["beta"], 1e-6)
     total = 0.0
     for _, t in (sim_now_min - active_df["t_min"]).clip(lower=0).items():
-        # remaining excitation it will still produce over next 60 min
         total += (alpha / beta) * math.exp(-beta * t) * (1 - math.exp(-beta * 60))
-    return float(total)
+    return float(min(total, 50.0))
+
+
+# --------------------------------------------------------------------------- #
+# Live cascade-risk map (Plotly density heatmap — no map token needed)
+# --------------------------------------------------------------------------- #
+def risk_map_figure(scored_df, hawkes_model=None, sim_now_min=None, center=BLR_CENTER):
+    """Density heatmap weighted by per-incident risk. Hotter = higher cascade risk.
+    Works for live (live_scored) or replay (active_incidents) frames that carry lat/lon.
+    Returns a Plotly figure, or None if no geocoded incidents."""
+    import plotly.express as px
+    d = scored_df.dropna(subset=["lat", "lon"]).copy()
+    if d.empty:
+        return None
+    # weight each incident by impact, boosted by Hawkes recency-excitation if available
+    w = d["impact"].astype(float).clip(lower=0.5)
+    if hawkes_model is not None and sim_now_min is not None and "t_min" in d.columns:
+        import math
+        alpha, beta = hawkes_model.p["alpha"], hawkes_model.p["beta"]
+        mins_ago = (sim_now_min - d["t_min"]).clip(lower=0)
+        w = w * (1.0 + (alpha / max(beta, 1e-6)) * mins_ago.apply(lambda m: math.exp(-beta * m)) * 5.0)
+    d["weight"] = w
+    fig = px.density_mapbox(
+        d, lat="lat", lon="lon", z="weight", radius=28,
+        center=dict(lat=center[0], lon=center[1]), zoom=10.5,
+        mapbox_style="open-street-map", hover_name="cause",
+        hover_data={"location": True, "readiness": True, "lat": False, "lon": False, "weight": False},
+        color_continuous_scale="YlOrRd",
+    )
+    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=440,
+                      coloraxis_showscale=False)
+    return fig
