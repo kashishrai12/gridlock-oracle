@@ -1,7 +1,7 @@
 # Gridlock Oracle
 
 **Predicting and pre-empting traffic-incident cascades in Bengaluru.**
-Flipkart GRiD · Theme 2 : Event-Driven Congestion
+Flipkart GRIDLOCK · Theme 2 : Event-Driven Congestion
 
 Gridlock Oracle is a decision-support system for traffic control rooms. It doesn't just detect
 incidents, it predicts the ones that will *compound*, targets scarce resources at them, routes
