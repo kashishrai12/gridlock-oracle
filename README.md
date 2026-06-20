@@ -8,7 +8,7 @@ incidents, it predicts the ones that will *compound*, targets scarce resources a
 diversions on live traffic, and learns from every outcome. Built entirely on incident data the
 city already collects, plus two live feeds. No new sensors.
 
-🔗 **Live demo:** *(your deployed Streamlit URL)*
+🔗 **Live demo:** [*(your deployed Streamlit URL)*](https://gridlock-oracle.streamlit.app/)
 
 ---
 
