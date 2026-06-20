@@ -1,24 +1,3 @@
-"""
-dashboard.py  —  Gridlock Oracle (closure-need model, SaaS-style UI)
-
-Run: streamlit run dashboard.py
-Prereqs: python train_model.py --data data/flipkart_gridlock.csv
-         python hotspots.py   --data data/flipkart_gridlock.csv
-
-Visual identity
-----------------
-Card-based layout with a light sidebar, grouped navigation, icon-led
-metric cards, and a light/dark toggle in the top bar. Every custom
-component reads its colors from a single THEME dict so flipping the
-toggle re-themes the whole app in one rerun — no page reload needed.
-
-Pages:
-  1. Predict Event       closure probability + impact + resource plan + explanation
-  2. Risk Map            zone x hour hotspot heatmap + junction leaderboard
-  3. Analytics           temporal / cause / closure-rate analytics (clearance = descriptive)
-  4. Diversion & Barricades   routing_page (unchanged)
-  5. Learning Loop       feedback on closure-prediction correctness
-"""
 
 import os, datetime as dt
 import pandas as pd

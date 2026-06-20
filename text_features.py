@@ -1,12 +1,3 @@
-"""
-text_features.py — interpretable severity/closure keyword features from the free-text
-`description` field. Bilingual: English + Kannada (and common transliterations), because
-the Bengaluru incident logs are code-mixed.
-
-These are deliberately simple and explainable (substring flags + length), so in the demo
-you can point at exactly which words moved a prediction. If they add measurable lift, the
-next step is multilingual sentence embeddings (Path B).
-"""
 
 import re
 import pandas as pd

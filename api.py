@@ -1,7 +1,4 @@
-"""
-api.py — FastAPI backend
-Usage: uvicorn api:app --reload --port 8000
-"""
+
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

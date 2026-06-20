@@ -1,27 +1,3 @@
-"""
-mappls.py — Mappls (MapmyIndia) API client for live traffic + Indian road routing.
-
-Design: this ENRICHES the existing system. Every method returns None on failure so callers
-fall back to historical/OSM behaviour — the demo can never break if the key is missing or
-a call fails.
-
-SETUP (one time):
-  1. Create a free project at https://apis.mappls.com/console/  ->  get:
-        - client_id + client_secret  (OAuth, for token)
-        - a REST API key              (used in route/tile URLs)
-  2. Set environment variables (PowerShell):
-        setx MAPPLS_CLIENT_ID "your_client_id"
-        setx MAPPLS_CLIENT_SECRET "your_client_secret"
-        setx MAPPLS_REST_KEY "your_rest_api_key"
-     (reopen the terminal so they load)
-  3. pip install requests
-  4. Verify: python mappls.py --selftest
-
-NOTE: Mappls endpoint paths occasionally change between API versions. The constants below
-are the current documented forms; if --selftest flags one, update it from your console docs
-at https://apis.mappls.com . Each step degrades independently, so a single wrong URL won't
-break the others.
-"""
 
 import os
 import time

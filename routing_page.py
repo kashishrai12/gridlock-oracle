@@ -1,10 +1,3 @@
-"""
-routing_page.py — Diversion + Barricade map page
-Imported into dashboard.py as a page component.
-
-In-process: calls routing.full_routing_analysis() directly — no API server,
-no localhost dependency, nothing to fail during a live demo.
-"""
 
 import streamlit as st
 import folium

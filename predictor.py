@@ -1,22 +1,4 @@
-"""
-predictor.py  —  rewired for the closure-need classifier
 
-GridlockPredictor.predict(event_dict) returns:
-    closure_prob        P(event requires a road closure)  [validated, AUC ~0.72]
-    impact_score        transparent 0-10 score from closure_prob + context
-    impact_tier         LOW / MODERATE / HIGH / CRITICAL
-    expected_clearance  DESCRIPTIVE historical clearance at this junction (NOT predicted)
-    resources           barricading / personnel / diversion recommendation
-    explanations        top feature contributions (pred_contribs, categorical-safe)
-
-Usage:
-    from predictor import GridlockPredictor
-    p = GridlockPredictor()
-    p.predict({"start_datetime":"2024-06-01 18:00", "priority":"High",
-               "event_type":"unplanned", "event_cause":"Accident",
-               "veh_type":"Truck", "junction":"JN_5", "corridor":"C_2", "zone":"Z_1",
-               "police_station":"PS_10"})
-"""
 
 import pickle
 import numpy as np

@@ -1,19 +1,3 @@
-"""
-train_model.py  —  v3 (pivoted core)
-
-The data verdict: clearance-time is not predictable (R2 ~ 0), but CLOSURE-NEED is
-(AUC ~0.77). So the headline model is now a classifier that predicts whether an
-incoming event will require a road closure -> drives the barricading recommendation.
-Clearance time is kept only as a DESCRIPTIVE per-location stat, never predicted.
-
-Run: python train_model.py --data data/flipkart_gridlock.csv
-
-Outputs (models/):
-    closure_clf.json            (XGBoost, JSON format -> supports categorical + SHAP)
-    location_stats.pkl, junction_risk.csv, corridor_stats.csv, zone_stats.csv,
-    enriched_dataset.csv        (+ pred_closure_prob, impact_score, impact_tier)
-    metrics.json
-"""
 
 import argparse, json, os, pickle
 import numpy as np

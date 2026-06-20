@@ -1,7 +1,4 @@
-"""
-check_text_fields.py — assess whether free-text columns are rich enough to justify NLP.
-Run: python check_text_fields.py --data data/flipkart_gridlock.csv
-"""
+
 import argparse
 import pandas as pd
 

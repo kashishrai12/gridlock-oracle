@@ -1,24 +1,3 @@
-"""
-conformal.py — CONFORMAL PREDICTION for the closure classifier.
-
-A single probability ("35%") hides how sure the model is. Conformal prediction wraps the
-model to output a prediction SET with a statistical coverage guarantee: at 90% confidence,
-the true label is in the set >=90% of the time. For our binary closure problem each event
-becomes one of:
-
-  • {needs closure}     -> confident YES
-  • {no closure}        -> confident NO
-  • {both} (UNCERTAIN)  -> the model abstains; send to a human
-
-This is honest uncertainty quantification — a named gap in the traffic-ML literature — and
-operationally it routes only the genuinely ambiguous incidents to a person.
-
-Method: split-conformal (Vovk). Nonconformity score = 1 - P(true class) on a calibration
-split; the (1-alpha) quantile sets the inclusion threshold. Self-contained.
-
-Run: python conformal.py --data data/flipkart_gridlock.csv
-Outputs: models/conformal.pkl  (the two thresholds + measured coverage)
-"""
 
 import argparse, pickle
 import numpy as np

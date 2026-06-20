@@ -1,22 +1,4 @@
-"""
-survival.py — Clearance time as a SURVIVAL problem (time-to-event with censoring).
 
-Why this exists: point-predicting clearance time failed (R^2~0). A big reason is CENSORING —
-~4,500 events have no end-signal, so plain regression throws them away. Those events are
-"right-censored": we know the incident lasted at least so long, just not exactly how long.
-Survival analysis is built precisely for this. We:
-
-  • use BOTH resolved events and censored ones (more data than regression could),
-  • estimate S(t) = P(incident still blocking the road after t minutes) via Kaplan-Meier,
-  • report median time-to-clear overall and by cause,
-  • fit a Weibull accelerated-failure-time model with covariates (handles censoring) and report
-    a concordance index (how well it ranks which incidents clear faster).
-
-Self-contained (numpy/scipy/pandas) — no extra libraries.
-
-Run: python survival.py --data data/flipkart_gridlock.csv
-Outputs: models/survival_curves.csv, models/survival_params.pkl
-"""
 
 import argparse, pickle, math
 import numpy as np

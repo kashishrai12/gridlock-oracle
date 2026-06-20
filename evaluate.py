@@ -1,20 +1,3 @@
-"""
-evaluate.py — Operational backtest harness.
-
-Replays the held-out TEMPORAL test set (events the model never trained on) through the
-full inference path (calibrated closure probability -> barricade decision) and reports
-what the system would have achieved operationally, vs two real-world baselines:
-
-  • Reactive (do nothing proactively): closures hit unprepared.
-  • Blanket (pre-position everywhere): catches all closures but wastes effort on every
-    non-closure event.
-  • Our system (targeted): catches a large share of closures while flagging only a
-    fraction of events — quantified in closures covered, wasted deployments avoided,
-    and estimated officer-hours saved.
-
-Run: python evaluate.py --data data/flipkart_gridlock.csv
-Outputs: models/backtest_report.json, models/backtest_threshold_curve.csv
-"""
 
 import argparse, json, pickle
 import numpy as np

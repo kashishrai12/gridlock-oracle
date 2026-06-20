@@ -1,20 +1,3 @@
-"""
-ab_test_embeddings.py — Path B: do MULTILINGUAL EMBEDDINGS of `description` improve the
-closure model, where keyword features did not?
-
-Keywords only capture coarse categories you already have structured. Embeddings capture
-nuance ("minor breakdown cleared quickly" vs "lorry overturned blocking both lanes") and
-handle English + Kannada automatically. We:
-  1. encode descriptions with a pretrained multilingual sentence model (no fitting on our
-     data -> no leakage), or fall back to char-ngram TF-IDF + SVD (script-agnostic, no torch),
-  2. reduce dimensionality with PCA/SVD FIT ON TRAIN ONLY,
-  3. run the same honest A/B as the keyword test and report ROC-AUC / PR-AUC + lift.
-
-Primary path needs: pip install sentence-transformers
-Fallback path needs nothing new (uses scikit-learn you already have).
-
-Run: python ab_test_embeddings.py --data data/flipkart_gridlock.csv
-"""
 
 import argparse
 import numpy as np

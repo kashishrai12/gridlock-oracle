@@ -1,13 +1,3 @@
-"""
-scale_benchmark.py — does the deployment optimizer scale?
-
-Times the ILP optimizer (scipy HiGHS) on event pools of increasing size — a normal busy day
-up to 20x that load (a multi-city / future-growth scenario) — and shows solve time stays well
-within real-time limits. Budgets scale with the event count so each problem is realistic.
-
-Run: python scale_benchmark.py --data data/flipkart_gridlock.csv
-Outputs: models/scale_benchmark.csv  (+ console table)
-"""
 
 import argparse, time
 import numpy as np

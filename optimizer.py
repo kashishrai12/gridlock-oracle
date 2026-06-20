@@ -1,17 +1,4 @@
-"""
-optimizer.py — City-wide deployment optimizer (operations research).
 
-Per-event recommendations are easy. The real problem is ALLOCATION UNDER SCARCITY:
-given a day of predicted incidents and a LIMITED pool of officers + barricades, which
-events do we fully resource to mitigate the most expected disruption?
-
-With two resource budgets this is a multi-dimensional 0/1 knapsack — NP-hard, and
-greedy is provably sub-optimal — so we solve it exactly with integer programming
-(scipy HiGHS). We also run greedy baselines to quantify the optimizer's lift.
-
-Build pool from predictions, then:
-  python optimizer.py --officers 80 --barricades 30
-"""
 
 import argparse
 import numpy as np

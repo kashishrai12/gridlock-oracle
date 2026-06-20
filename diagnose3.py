@@ -1,10 +1,4 @@
-"""
-Decision tool: where is the real signal in this data?
-Tests, on a TEMPORAL split (honest), three candidate targets and prints whether
-each beats its naive baseline. Also runs a random-split regression to tell
-no-signal apart from temporal-drift.
-Run: python diagnose3.py --data data/flipkart_gridlock.csv
-"""
+
 import argparse, numpy as np, pandas as pd
 from sklearn.metrics import r2_score, roc_auc_score, f1_score, accuracy_score
 import xgboost as xgb

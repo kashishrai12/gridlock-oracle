@@ -1,21 +1,3 @@
-"""
-live_feed.py — LIVE incident feed.
-
-"Live" = incidents arrive from a stream (not a form) and are scored automatically by the
-existing models. Two sources:
-
-  1. REAL API (TomTom Traffic Incidents) — if TOMTOM_API_KEY is set, pulls REAL incidents
-     happening in Bengaluru right now (accidents, jams, closures, flooding, breakdowns).
-     Mappls does not offer a city-wide incident feed, so we use TomTom for this.
-  2. REPLAY (always works) — replays a real high-incident day from the dataset as a
-     fast-forward live stream. Honest and always dense, so the demo never looks empty.
-
-Each incident is scored by the closure predictor and folded into the Hawkes cascade model so
-the live citywide cascade risk updates as incidents arrive.
-
-Get a free key (2,500 req/day) at https://developer.tomtom.com -> then:
-    setx TOMTOM_API_KEY "your_key"
-"""
 
 import os
 import pandas as pd

@@ -1,20 +1,3 @@
-"""
-congestion.py — Congestion surface for capacity-aware diversion routing.
-
-Two signals, combined into a 0..1 "load" for any point on the map:
-  1. STRUCTURAL load  — where incidents historically cluster (grid density from the
-                        full event log). Always available.
-  2. LIVE load        — events ACTIVE at the query time near a point (optional, used
-                        when a timestamp is supplied) so diversions also avoid roads
-                        next to other ongoing incidents.
-
-The router multiplies edge travel cost by (1 + alpha * load), so congested roads look
-"longer" and get routed around. This is the project's differentiator: diversions that
-don't create a second jam.
-
-Run: python congestion.py --data data/flipkart_gridlock.csv
-Output: models/congestion_grid.csv
-"""
 
 import argparse, os
 import numpy as np

@@ -1,18 +1,3 @@
-"""
-learning_loop.py — a REAL feedback-and-recalibration loop.
-
-Two parts:
-  1. simulate(): replays events chronologically in batches. After each batch its true
-     outcomes are added to the feedback pool and the probability calibrator is refit, so
-     later batches are scored by a calibrator trained on everything seen so far. The
-     resulting curve shows calibration error (ECE) dropping as the system accumulates
-     feedback — i.e. it demonstrably gets better with use.
-  2. Deployable hooks: log_outcome() records each (prediction, actual) as it resolves;
-     recalibrate_from_feedback() refits the live calibrator from that log. This is the
-     mechanism a real deployment would run nightly.
-
-Run: python learning_loop.py --data data/flipkart_gridlock.csv
-"""
 
 import argparse, csv, os, pickle
 import numpy as np

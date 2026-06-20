@@ -1,15 +1,3 @@
-"""
-find_high_risk_example.py — find REAL closure events the model scores highest, using the
-SAME fields the (restructured) Predict Event page collects, so the printed probability
-reproduces EXACTLY when you type the values into the dashboard.
-
-Fields the UI uses: event_cause, veh_type, priority, event_type, time-of-day,
-police_station, and (optional) junction. Zone/corridor are NOT used by the closure model
-and are omitted. Blank vehicle/junction are sent as "none" (the "— not specified —"
-dropdown option).
-
-Run: python find_high_risk_example.py --data data/flipkart_gridlock.csv
-"""
 
 import argparse
 import pandas as pd

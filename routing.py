@@ -1,15 +1,3 @@
-"""
-routing.py — Diversion route generator + Barricade point mapper
-            (now CAPACITY-AWARE: routes avoid already-congested roads)
-
-Uses OSMnx to pull Bengaluru road graph, removes affected edges, and computes
-alternate routes. The differentiator: every road's travel cost is inflated by the
-local congestion load (congestion.py), so diversions route AROUND congestion instead
-of dumping traffic onto roads that are already choked or next to other active events.
-
-Usage (standalone test):
-    python routing.py
-"""
 
 import os
 import json

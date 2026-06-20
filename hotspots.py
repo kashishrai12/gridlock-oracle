@@ -1,18 +1,3 @@
-"""
-hotspots.py  —  spatiotemporal hotspot analytics (the "manpower" pillar)
-
-Descriptive, not predictive: aggregates the full event log to show WHERE and WHEN
-incidents cluster, and converts expected load into a deployment recommendation.
-Uses ALL events with a valid start time (not just closure-labelled ones).
-
-Run: python hotspots.py --data data/flipkart_gridlock.csv
-Outputs (models/):
-    hotspot_junctions.csv   top junctions by event load (+ closure rate)
-    hotspot_zone_hour.csv   zone x hour-of-day matrix (heatmap source)
-    hotspot_hourly.csv      city-wide hourly profile
-    hotspot_dow.csv         day-of-week profile
-API: HotspotAnalyzer(models_dir).recommend(zone, hour, day_of_week)
-"""
 
 import argparse, os
 import numpy as np

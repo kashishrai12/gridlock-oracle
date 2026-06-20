@@ -1,20 +1,4 @@
-"""
-analogs.py — Historical analog retrieval (k-nearest-neighbour).
 
-The dataset records what HAPPENED to past events (how long they took to clear, whether
-they needed a closure) but NOT how many officers/barricades were deployed. So instead of
-inventing staffing numbers, we:
-
-  1. Find the K most SIMILAR past incidents (same kind of event, vehicle, area, time).
-  2. Report their real outcomes: clearance-time distribution + closure rate.
-  3. Derive a resource plan from those data-grounded quantities via a transparent,
-     tunable staffing policy (e.g. "1 officer per 30 min of expected clearance").
-  4. Surface the actual analog incidents so the recommendation is auditable —
-     "we're not guessing; here are the closest historical precedents."
-
-Build:  python analogs.py --data models/enriched_dataset.csv
-Use:    from analogs import AnalogRetriever; AnalogRetriever().query(event_dict)
-"""
 
 import argparse, os, pickle
 import numpy as np

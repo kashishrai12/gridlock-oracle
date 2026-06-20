@@ -1,25 +1,4 @@
-"""
-hawkes.py — Incident cascades as a SELF-EXCITING POINT PROCESS (Hawkes process).
 
-Idea (plain): we model traffic incidents the way seismologists model earthquake aftershocks.
-Each incident temporarily raises the rate of further incidents at the same location, and that
-extra risk decays over time. Fitting this gives:
-
-  • BRANCHING FACTOR (n = alpha/beta): the average number of follow-on incidents each incident
-    triggers — the headline, novel, quotable number.
-  • EXCITATION HALF-LIFE (ln2/beta minutes): how long the elevated-risk window lasts.
-  • A LIVE intensity lambda(t) that spikes when an incident is reported and decays after —
-    updating in real time as events arrive (live by construction, no new data needed).
-
-We also compare against a plain (homogeneous Poisson) model to PROVE incidents are genuinely
-self-exciting, not random — that likelihood gap is the rigor behind the claim.
-
-Intensity (exponential kernel), per location:
-    lambda(t) = mu + sum_{t_i < t} alpha * exp(-beta * (t - t_i))
-
-Run: python hawkes.py --data data/flipkart_gridlock.csv
-Outputs: models/hawkes_params.pkl
-"""
 
 import argparse, math, pickle
 import numpy as np

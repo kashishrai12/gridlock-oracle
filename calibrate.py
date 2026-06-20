@@ -1,16 +1,3 @@
-"""
-calibrate.py — Probability calibration for the closure classifier.
-
-scale_pos_weight (used to handle the 10.5% imbalance) inflates the raw probabilities,
-so they rank well but don't mean what they say. Calibration learns a monotonic map from
-raw score -> true frequency, so a calibrated "30%" really means ~30% of such events need
-a closure. We fit on a held-out slice and evaluate on a separate slice (no leakage),
-report Brier score + Expected Calibration Error (ECE) before/after, and keep whichever
-is best — falling back to raw if calibration doesn't help.
-
-Run: python calibrate.py --data data/flipkart_gridlock.csv
-Outputs: models/closure_calibrator.pkl, models/calibration_curve.csv, models/calibration_metrics.json
-"""
 
 import argparse, json, pickle
 import numpy as np

@@ -1,15 +1,3 @@
-"""
-ab_test_text.py — honest A/B: does the `description` text actually improve the closure
-model? Trains the SAME XGBoost classifier (identical config to train_model.py) twice on
-the temporal split — once on structured features only, once with the keyword text
-features added — and reports ROC-AUC + PR-AUC on the held-out test set, plus which text
-features the model found useful.
-
-Decision rule: integrate only if PR-AUC improves meaningfully. If not, keep the keywords
-as a display-only signal (still useful, no false claim of lift).
-
-Run: python ab_test_text.py --data data/flipkart_gridlock.csv
-"""
 
 import argparse
 import numpy as np

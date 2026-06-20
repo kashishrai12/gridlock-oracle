@@ -1,18 +1,3 @@
-"""
-cascade.py — Compounding-event (cascade) detection.
-
-Insight: when two incidents are active AT THE SAME TIME at the SAME place, their traffic
-impact compounds. This finds those overlapping pairs, scores how badly they compound,
-and ranks the most cascade-prone locations.
-
-Location key:
-  • events with a real corridor          -> grouped by corridor
-  • events tagged "Non-corridor"/blank   -> grouped by a ~330 m spatial cell (lat/lon),
-    so genuine same-spot overlaps are caught but far-apart events are never lumped.
-
-Standalone build:  python cascade.py --data data/flipkart_gridlock.csv
-Dashboard use:     import cascade; cascade.render_cascade_page()
-"""
 
 import argparse, os
 import numpy as np

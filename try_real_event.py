@@ -1,12 +1,4 @@
-"""
-try_real_event.py — run the predictor on ACTUAL rows from the dataset.
 
-Picks a few real events (including one that actually required a closure and one that
-didn't), feeds their real attributes to GridlockPredictor, and prints the prediction
-next to the ground truth so you can sanity-check.
-
-Run: python try_real_event.py --data data/flipkart_gridlock.csv
-"""
 
 import argparse, json
 import pandas as pd
