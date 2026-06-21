@@ -39,11 +39,61 @@ Numbers are reported as **measured / held-out / estimated** .
 
 ---
 
+## Leakage-free by design
+
+Our first instinct — predicting a derived congestion score — leaked. We caught it early and
+pivoted to predicting **closure-need**, a target known at incident-creation time. We then audited
+every feature and split:
+
+- **No post-event fields.** Any aggregate computed from closure outcomes, resolution time, or end
+  status was removed. The model trains strictly on what is known the moment an incident is reported.
+- **Encoders and calibrators fit on the training split only** — no information from the test set
+  leaks backward into preprocessing.
+- **Temporal held-out test** — we train on the past and test on the future, not a random shuffle.
+  This is the honest split for a forecasting system, and a *stricter* test than a random split:
+  it measures whether the model generalises to days it has never seen.
+
+Every headline number above comes from this leakage-free, temporally held-out evaluation — which
+is why our metrics are deliberately realistic rather than suspiciously perfect.
+
+---
+
+## Severity + confidence, not a black box
+
+For any incident the system outputs a **severity tier** (Critical / High / Moderate / Low) together
+with a **calibrated confidence** and a graded readiness recommendation (pre-position / standby /
+monitor). Unlike a severity derived from a couple of raw columns, ours is grounded in a calibrated
+closure-risk model with **conformal uncertainty bounds**. when the model is unsure it says so and
+routes the incident to a human, with a 90% coverage guarantee.
+
+Every prediction is **explainable**: the dashboard shows exactly which factors raised or lowered the
+closure risk for that specific incident, computed with exact XGBoost SHAP values (no external
+black-box dependency). One click exports a printable **commander briefing PDF** with the severity,
+the recommended response, the reasoning, and historical context.
+
+---
+
+## Impact: same coverage, at a fraction of the cost
+
+Framed as a counterfactual against the status quo:
+
+- **Without targeting (blanket deployment):** resources are pre-positioned at every incident, and
+  the vast majority of those deployments are wasted on incidents that never needed them.
+- **With Gridlock Oracle:** the same closure coverage is achieved while flagging under 18% of
+  incidents — **85.9% fewer wasted deployments** and an estimated **~6,800 officer-hours saved
+  (69%)**, at **2.8x** the efficiency of blanket coverage.
+
+Officer-hours are an estimate against a deliberately conservative blanket-coverage baseline. We
+present the full operating curve instead of a single cherry picked point. The city chooses where to sit
+on the recall-vs-efficiency trade-off.
+
+---
+
 ## What's inside
 
 **Live system**
-- **TomTom incident feed** — real Bengaluru incidents, streamed and triaged live (`live_feed.py`)
-- **Mappls live traffic** — congestion-aware diversion routing (`mappls.py`, `routing.py`)
+- **TomTom incident feed**: real Bengaluru incidents, streamed and triaged live (`live_feed.py`)
+- **Mappls live traffic**: congestion-aware diversion routing (`mappls.py`, `routing.py`)
 
 **Intelligence**
 - Calibrated **closure-need classifier** with **conformal** uncertainty (`predictor.py`, `conformal.py`)
@@ -51,8 +101,9 @@ Numbers are reported as **measured / held-out / estimated** .
 - **Survival analysis** for clearance time (`survival.py`)
 - **ILP optimizer** (scipy HiGHS) for officer/barricade allocation (`optimizer.py`)
 - **Learning loop** that recalibrates from outcomes (`learning_loop.py`)
+- Per-prediction **SHAP explanations** + one-click **commander briefing PDF** (`predictor.py`, `briefing.py`)
 
-**Honest methodology** — we tested and *rejected* six approaches (clearance-time regression,
+**Honest methodology**: we tested and *rejected* six approaches (clearance-time regression,
 keyword NLP, character n-grams, multilingual embeddings, a spatiotemporal forecast, and a
 circular cascade heuristic), keeping only what survived validation.
 
@@ -112,7 +163,7 @@ streamlit run dashboard.py
 
 | Page | What it shows |
 |---|---|
-| **Predict Event** | Per-incident closure risk, impact, readiness tier, conformal confidence badge |
+| **Predict Event** | Per-incident closure risk, impact, readiness tier, conformal confidence badge, SHAP explanation, briefing PDF |
 | **Analytics** | Hotspots, clearance survival curves, distributions |
 | **Event Cascades** | Hawkes branching factor + live decay curve |
 | **Diversion & Barricades** | Capacity-aware reroutes on live Mappls traffic + barricade entry points |
@@ -124,12 +175,12 @@ streamlit run dashboard.py
 
 ## Tech stack
 
-Python · pandas · NumPy · scikit-learn · XGBoost · SciPy (HiGHS) · Streamlit · Plotly ·
+Python · pandas · NumPy · scikit-learn · XGBoost · SciPy (HiGHS) · Streamlit · Plotly · ReportLab ·
 TomTom Traffic API · Mappls (MapmyIndia) API
 
 ---
 
 ## License & data
 
-Built for Flipkart GRiD. The competition dataset is used under the event's terms and is not
+Built for Flipkart GRIDLOCK. The competition dataset is used under the event's terms and is not
 redistributed beyond what the rules permit.
