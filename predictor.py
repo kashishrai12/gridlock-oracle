@@ -116,6 +116,14 @@ class GridlockPredictor:
         }
 
     # ------------------------------------------------------------------ #
+    _FEATURE_LABELS = {
+        "event_cause_cat": "Event cause", "police_station_cat": "Police station",
+        "veh_type_cat": "Vehicle type", "corridor_event_count": "Corridor incident history",
+        "zone_event_count": "Zone incident history", "junction_event_count": "Junction incident history",
+        "junction_hist_clearance": "Junction clearance history", "is_planned": "Planned event",
+        "hour": "Time of day", "is_weekend": "Weekend", "priority_high": "High priority",
+    }
+
     def _explain(self, X, top=5):
         """Per-event feature contributions via XGBoost pred_contribs (SHAP values).
         Works with categorical splits; no external shap dependency."""
@@ -124,7 +132,8 @@ class GridlockPredictor:
         contribs = booster.predict(dm, pred_contribs=True)[0]   # last entry = bias
         pairs = list(zip(self.feats, contribs[:-1]))
         pairs.sort(key=lambda kv: abs(kv[1]), reverse=True)
-        return [{"feature": f, "contribution": round(float(c), 3),
+        return [{"feature": f, "label": self._FEATURE_LABELS.get(f, f.replace("_", " ").title()),
+                 "contribution": round(float(c), 3),
                  "direction": "raises" if c > 0 else "lowers"} for f, c in pairs[:top]]
 
 

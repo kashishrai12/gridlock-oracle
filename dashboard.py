@@ -1,3 +1,26 @@
+"""
+dashboard.py  —  Gridlock Oracle (closure-need model, SaaS-style UI)
+
+Run: streamlit run dashboard.py
+Prereqs: python train_model.py --data data/flipkart_gridlock.csv
+         python hotspots.py   --data data/flipkart_gridlock.csv
+
+Visual identity
+----------------
+Card-based layout with a light sidebar, grouped navigation, icon-led
+metric cards, and a light/dark toggle in the top bar. Every custom
+component reads its colors from a single THEME dict so flipping the
+toggle re-themes the whole app in one rerun — no page reload needed.
+
+Pages:
+  1. Predict Event          closure probability + impact + resource plan + SHAP explanation + briefing PDF
+  2. Analytics              temporal / cause / closure-rate analytics + clearance survival
+  3. Event Cascades         Hawkes self-exciting cascade model + decay curve
+  4. Diversion & Barricades routing console (themed)
+  5. Deployment Optimizer   ILP allocation of officers/barricades
+  6. Learning Loop          feedback on closure-prediction correctness + live recalibration
+  7. Live Feed              real TomTom incidents (or replay) + live cascade-risk heatmap
+"""
 
 import os, datetime as dt
 import pandas as pd
@@ -116,7 +139,14 @@ h1,h2,h3,h4,h5,h6,
 .topbar-eyebrow { font-size:.74rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--primary); }
 .topbar-title { font-size:1.9rem; font-weight:800; color:var(--ink); margin:.15rem 0 .3rem; line-height:1.15; }
 .topbar-desc { color:var(--muted); font-size:.92rem; margin:0 0 .2rem; max-width:62ch; }
-.meta-row { font-size:.78rem; color:var(--muted); margin-bottom:1.1rem; }
+.meta-row { font-size:.78rem; color:var(--muted); margin-bottom:1.1rem; display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+.live-dot { width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block;
+            box-shadow:0 0 0 0 var(--green); animation:livepulse 2s infinite; flex:none; }
+@keyframes livepulse {
+  0%   { box-shadow:0 0 0 0 rgba(52,211,153,.5); }
+  70%  { box-shadow:0 0 0 6px rgba(52,211,153,0); }
+  100% { box-shadow:0 0 0 0 rgba(52,211,153,0); }
+}
 
 div[data-testid="column"]:has(button[key="theme_toggle"]) { display:flex; align-items:flex-start; justify-content:flex-end; }
 .stButton button[kind="secondary"]#, button[kind="secondary"] { }
@@ -191,6 +221,16 @@ button[data-testid="baseButton-secondary"]:has(div:contains("Dark")) { }
 .lb-pill { font-size:.72rem; font-weight:700; padding:.14rem .55rem; border-radius:999px; }
 
 /* ---------------------------------------------------------------- */
+/* Route cards (diversion page)                                      */
+/* ---------------------------------------------------------------- */
+.route-card { background:var(--surface); border:1px solid var(--border); border-radius:14px;
+              padding:.85rem 1rem; box-shadow:var(--shadow); height:100%; }
+.route-rec { font-weight:700; font-size:.8rem; letter-spacing:.02em; }
+.route-via { font-size:1.05rem; font-weight:700; margin:.25rem 0; color:var(--ink); }
+.route-meta { color:var(--muted); font-size:.86rem; }
+.route-cong { color:var(--ink); font-size:.86rem; margin-top:.3rem; }
+
+/* ---------------------------------------------------------------- */
 /* Native widgets, themed                                            */
 /* ---------------------------------------------------------------- */
 label, .stSelectbox label, .stSlider label, .stTimeInput label, .stRadio label { color:var(--ink) !important; font-weight:600 !important; font-size:.86rem !important; }
@@ -257,6 +297,8 @@ _ICON_INNER = {
     "map_pin": '<path d="M12 21s-7-7.5-7-12a7 7 0 1 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.4"/>',
     "route": '<path d="M4 4v6a4 4 0 0 0 4 4h8"/><polyline points="12,10 16,14 12,18"/>',
     "loop": '<path d="M3 12a9 9 0 1 1 2.6 6.4"/><polyline points="3,6 3,12 9,12"/>',
+    "brain": '<path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8V15a3 3 0 0 0 4 2.8A3 3 0 0 0 12 19a3 3 0 0 0 3-1.2 3 3 0 0 0 4-2.8v-3.2A3 3 0 0 0 18 6a3 3 0 0 0-3-3 3 3 0 0 0-3 1.5A3 3 0 0 0 9 3z"/><line x1="12" y1="4.5" x2="12" y2="19"/>',
+    "activity": '<polyline points="2,12 7,12 10,5 14,19 17,12 22,12"/>',
 }
 
 
@@ -436,11 +478,6 @@ def load_survival_params():
     return pickle.load(open(f, "rb")) if os.path.exists(f) else None
 
 @st.cache_resource
-def load_hawkes():
-    import hawkes
-    return hawkes.HawkesModel()
-
-@st.cache_resource
 def load_predictor():
     return GridlockPredictor(MODELS_DIR)
 
@@ -536,8 +573,6 @@ page = st.session_state.page
 PAGE_META = {
     "Predict Event": ("Forecast", "Predict event impact",
                        "Closure-need probability drives the barricading & resource recommendation."),
-    "Risk Map": ("Surveillance", "Hotspot risk map",
-                 "Where and when event load concentrates across the network."),
     "Analytics": ("Patterns", "Analytics",
                   "Temporal, causal, and closure-rate patterns across logged events."),
     "Event Cascades": ("Risk", "Event cascade detection",
@@ -548,8 +583,8 @@ PAGE_META = {
                        "Log whether a closure was actually needed, to refine the model over time."),
     "Deployment Optimizer": ("Operations", "Deployment optimizer",
                              "Allocate a limited pool of officers and barricades across the day's predicted incidents to mitigate the most disruption."),
-    "Live Feed": ("LIVE OPS", "Live incident feed", "Real-time incidents scored as they arrive"),  
-    
+    "Live Feed": ("LIVE OPS", "Live incident feed", "Real-time incidents scored as they arrive"),
+
 }
 
 tl, tr = st.columns([6, 1])
@@ -579,13 +614,24 @@ if not artifacts_ready():
           "<code>python hotspots.py --data data/flipkart_gridlock.csv</code> before loading this dashboard.")
     st.stop()
 
+# meta row — date + dataset context + a live-system status indicator
+try:
+    import live_feed as _lf
+    _live_on = _lf.source_status() == "live-api"
+except Exception:
+    _live_on = False
+
 enriched = load_enriched()
 if enriched is not None:
     bits = [dt.date.today().strftime("%d %b %Y")]
     if "junction" in enriched.columns:
         bits.append(f"{enriched['junction'].nunique():,} junctions tracked")
     bits.append(f"{len(enriched):,} logged events")
-    st.markdown('<div class="meta-row">' + "  ·  ".join(bits) + "</div>", unsafe_allow_html=True)
+    status_html = ('<span class="live-dot"></span>'
+                   + ('<span>Live · TomTom connected</span>' if _live_on
+                      else '<span>Replay mode · set TOMTOM_API_KEY for live</span>'))
+    st.markdown('<div class="meta-row">' + "  ·  ".join(bits)
+                + '&nbsp;&nbsp;·&nbsp;&nbsp;' + status_html + "</div>", unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -619,16 +665,17 @@ if page == "Predict Event":
         }
         r = predictor.predict(event)
 
+        # ---- Severity + confidence headline (conformal) ----
         conf = load_conformal()
         if conf and "closure_prob_raw" in r:
             import conformal as _cf
             label = _cf.classify(r["closure_prob_raw"], conf["qhat"])
-            _tone = theme["green"] if label.startswith("CONFIDENT") else "#f59e0b"
+            _tone = "var(--green)" if label.startswith("CONFIDENT") else "var(--amber)"
             st.markdown(f'<span style="background:{_tone};color:#fff;font-weight:700;'
                         f'padding:3px 10px;border-radius:5px;font-size:0.85rem;">{label}</span> '
-                        f'<span style="color:#94a3b8;font-size:0.8rem;">&nbsp;90%-coverage guaranteed</span>',
+                        f'<span style="color:var(--muted);font-size:0.8rem;">&nbsp;90%-coverage guaranteed</span>',
                         unsafe_allow_html=True)
-            
+
         g1, g2 = st.columns([1, 1])
         with g1:
             risk_meter(r["closure_prob"])
@@ -653,6 +700,29 @@ if page == "Predict Event":
             stat_card("alert_triangle", "Rapid response", "Yes" if res["rapid_response_required"] else "No",
                       tone="bad" if res["rapid_response_required"] else "good"),
         ])
+        # ---- Why this prediction? (per-incident SHAP explanation) ----
+        if r.get("explanations"):
+            with st.container(border=True):
+                card_header("brain", "Why this prediction?",
+                            "Which factors drove this incident's closure risk (SHAP contributions)")
+                exps = r["explanations"]
+                maxc = max(abs(e["contribution"]) for e in exps) or 1.0
+                for e in exps:
+                    raises = e["direction"] == "raises"
+                    col = theme["red"] if raises else theme["green"]
+                    pct = int(abs(e["contribution"]) / maxc * 100)
+                    arrow = "▲" if raises else "▼"
+                    st.markdown(
+                        f'<div style="display:flex;align-items:center;gap:10px;margin:6px 0;">'
+                        f'<div style="width:200px;font-size:0.9rem;color:var(--ink);">{e["label"]}</div>'
+                        f'<div style="flex:1;background:var(--bg);border-radius:5px;height:18px;position:relative;">'
+                        f'<div style="width:{pct}%;background:{col};height:18px;border-radius:5px;"></div></div>'
+                        f'<div style="width:90px;font-size:0.8rem;font-weight:700;color:{col};">'
+                        f'{arrow} {"raises" if raises else "lowers"}</div></div>',
+                        unsafe_allow_html=True)
+                st.caption("Bars show each factor's contribution to this specific prediction — "
+                           "red raises closure risk, green lowers it. Computed via exact XGBoost "
+                           "SHAP values, no black box.")
 
         if r.get("analogs"):
             ana = r["analogs"]
@@ -665,18 +735,17 @@ if page == "Predict Event":
                     "event_cause": "Cause", "veh_type": "Vehicle", "zone": "Zone",
                     "clearance_mins": "Clearance (min)", "needed_closure": "Needed closure"})
                 st.dataframe(ax, use_container_width=True, hide_index=True)
-                
-        ex = pd.DataFrame(r["explanations"])
-        if not ex.empty:
-            with st.container(border=True):
-                card_header("bar_chart", "Why this prediction", "Feature contributions to closure risk")
-                ex["signed"] = ex["contribution"]
-                fig = px.bar(ex.iloc[::-1], x="signed", y="feature", orientation="h",
-                             color="signed", color_continuous_scale=[theme["primary"], theme["surface-alt"], theme["red"]],
-                             color_continuous_midpoint=0,
-                             labels={"signed": "contribution to closure risk"})
-                fig.update_coloraxes(showscale=False)
-                st.plotly_chart(style_fig(fig, height=300), use_container_width=True)
+
+        # ---- Commander briefing PDF export ----
+        import briefing
+        pdf_bytes = briefing.build_briefing(event, r)
+        st.download_button(
+            "📄 Download commander briefing (PDF)",
+            data=pdf_bytes,
+            file_name=f"gridlock_briefing_{event.get('event_cause','incident')}.pdf",
+            mime="application/pdf",
+            type="primary",
+        )
 
         if enriched is not None and {"latitude", "longitude"}.issubset(enriched.columns):
             jrows = enriched[enriched["junction"].astype(str) == str(junction_val)]
@@ -685,29 +754,6 @@ if page == "Predict Event":
                     card_header("map_pin", "Junction location", None)
                     st.map(pd.DataFrame({"lat": [jrows["latitude"].mean()],
                                          "lon": [jrows["longitude"].mean()]}), zoom=12)
-
-
-# --------------------------------------------------------------------------- #
-# 2) RISK MAP  (hotspots)
-# --------------------------------------------------------------------------- #
-elif page == "Risk Map":
-    zh = load_csv("hotspot_zone_hour.csv")
-    jl = load_csv("hotspot_junctions.csv")
-    if zh is None or jl is None:
-        alert("warn", "Hotspots not generated",
-              "Run <code>python hotspots.py --data data/flipkart_gridlock.csv</code> to generate them.")
-        st.stop()
-
-    with st.container(border=True):
-        card_header("grid", "Event load by zone × hour of day", None)
-        zcol = zh.columns[0]
-        mat = zh.set_index(zcol)
-        fig = px.imshow(mat, aspect="auto",
-                        color_continuous_scale=[theme["surface-alt"], theme["amber-soft"], theme["amber"], theme["red"]],
-                        labels=dict(x="Hour of day", y="Zone", color="Events"))
-        st.plotly_chart(style_fig(fig, height=420), use_container_width=True)
-
-    render_leaderboard(jl)
 
 
 # --------------------------------------------------------------------------- #
@@ -794,7 +840,7 @@ elif page == "Event Cascades":
         alert("warn", "No cascades available",
               "Run <code>python cascade.py --data data/flipkart_gridlock.csv</code> to generate them.")
         st.stop()
-    
+
     hm = load_hawkes()
     n = hm.branching_factor; hl = hm.half_life_min; f60 = hm.expected_followons(60)
     stat_grid([
@@ -819,7 +865,7 @@ elif page == "Event Cascades":
         fig.add_hline(y=1.0, line_dash="dash", line_color=theme["muted"])
         st.plotly_chart(fig, use_container_width=True)
         st.caption(f"Risk jumps to {ys[0]:.1f}× normal right after an incident, halving every {hl:.0f} min.")
-        
+
     stat_grid([
         stat_card("alert_triangle", "Cascade pairs", f"{len(cas):,}", "overlapping incidents", tone="info"),
         stat_card("octagon", "High-risk (≥7)", f"{int((cas['cascade_risk'] >= 7).sum()):,}", "compound risk", tone="bad"),
@@ -878,8 +924,7 @@ elif page == "Event Cascades":
 elif page == "Diversion & Barricades":
     try:
         import routing_page
-        # Call render_routing_page with theme and dark mode info
-        routing_page.render_routing_page(theme=theme)
+        routing_page.render_routing_page(theme=theme, card_header=card_header, alert=alert)
     except Exception as e:
         alert("bad", "Routing page failed to load", str(e))
 
@@ -973,7 +1018,7 @@ elif page == "Learning Loop":
             ll.log_outcome(ev.get("id", "manual"), prob, 0)
             st.session_state.fb_event = enr.sample(1).iloc[0].to_dict(); st.toast("Logged ✓"); st.rerun()
         if cc[2].button("🔄 Recalibrate now", use_container_width=True):
-            n = ll.recalibrate_from_feedback(min_n=1)
+            n = ll.recalibrate_from_feedback()
             st.success(f"Recalibrated from {n} logged outcomes." if n else "Need more varied feedback first.")
         sfb = ll.feedback_stats()
         st.caption(f"Outcomes logged this session: {sfb['n']}. In production these accumulate and recalibrate "
@@ -1079,7 +1124,7 @@ elif page == "Live Feed":
                 show.columns = ["Time", "Cause", "Location", "Closure prob", "Impact", "Readiness"]
                 st.dataframe(show, use_container_width=True, hide_index=True)
 
-        
+
 
     # ---- Mode B: replay a real high-incident day as a live stream ----
     else:
@@ -1122,6 +1167,3 @@ elif page == "Live Feed":
             status_ph.success(f"Replay complete — {len(df)} real incidents from {day} streamed and scored live.")
         else:
             st.info("Press **Start live feed** to stream a real high-incident day, scored live by the system.")
-
-
-            

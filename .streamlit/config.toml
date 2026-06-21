@@ -1,3 +1,8 @@
+# Streamlit base theme — makes native chrome (spinners, tooltips, widgets,
+# the running indicator) match the Gridlock Oracle palette so nothing renders
+# in default Streamlit red/white. The app's own CSS still drives the light/dark
+# toggle; this just sets a sensible base so native elements never clash.
+
 [theme]
 base = "light"
 primaryColor = "#4338CA"
@@ -7,4 +12,7 @@ textColor = "#15171F"
 font = "sans serif"
 
 [client]
-showErrorDetails = true
+toolbarMode = "minimal"
+
+[ui]
+hideTopBar = true
