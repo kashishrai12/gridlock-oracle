@@ -153,7 +153,7 @@ python scale_benchmark.py                                     # ILP solve-time v
 
 ### 5. Launch the dashboard
 ```bash
-streamlit run dashboard.py
+streamlit run dashboard.py --server.port 8051
 # open http://localhost:8501
 ```
 
